@@ -33,19 +33,33 @@
   ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF 
   ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.  
   
+  http://shelvin.de/arduino-in-den-sleep_mode_pwr_down-schlaf-modus-setzen/  
+  
 */
+
+// The Adafruit_SHT31 lib v1.0.0 should be disabled, because measurement will take 500ms, which is too much
+//#define USE_ADAFRUIT_SHT31_LIB
 
 #include <Arduino.h>
 #include <Wire.h>
 #include <U8g2lib.h>
 #include <Adafruit_SGP30.h>
-#include <Adafruit_SHT31.h>
+#ifdef USE_ADAFRUIT_SHT31_LIB
+#include <Adafruit_SHT31.h>			// adafruit sht31 lib v1.0.0 has a 500 milliseconds delay, 15 are sufficient
+#else // USE_ADAFRUIT_SHT31_LIB
+#include <SHTSensor.h>				
+#endif // USE_ADAFRUIT_SHT31_LIB
 #include <avr/sleep.h> 
 
 
 
-U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+U8G2_SSD1306_128X64_NONAME_2_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
+#ifdef USE_ADAFRUIT_SHT31_LIB
 Adafruit_SHT31 sht31 = Adafruit_SHT31();	// temperature & humidity sensor
+#else // USE_ADAFRUIT_SHT31_LIB
+SHTSensor sht;
+#endif // USE_ADAFRUIT_SHT31_LIB
+
 Adafruit_SGP30 sgp;						// air quality sensor
 
 U8G2LOG u8g2log;
@@ -53,19 +67,21 @@ U8G2LOG u8g2log;
 // setup the terminal (U8G2LOG) and connect to u8g2 for automatic refresh of the display
 // The size (width * height) depends on the selected font and the display
 
-#define U8LOG_WIDTH 25
-#define U8LOG_HEIGHT 9
+#define U8LOG_WIDTH 24
+#define U8LOG_HEIGHT 5
 uint8_t u8log_buffer[U8LOG_WIDTH*U8LOG_HEIGHT];
 
 //===================================================
+// Constants: Font definitions for U8g2
 
-
+#define FONT_NARROW u8g2_font_mercutio_basic_nbp_tr
 #define FONT_SMALL u8g2_font_helvB08_tf
 #define FONT_MED_NUM u8g2_font_helvB14_tn
 //#define FONT_BIG u8g2_font_inr49_mn
 #define FONT_BIG u8g2_font_logisoso38_tn
 
 //===================================================
+// Constants: State values for the sensor & display coordination
 
 #define STATE_RESET 0
 #define STATE_STARTUP_DISP_ON 1
@@ -76,20 +92,136 @@ uint8_t u8log_buffer[U8LOG_WIDTH*U8LOG_HEIGHT];
 #define STATE_MEASURE_DISP_OFF 22
 #define STATE_SENSOR_SLEEP_DISP_OFF 32
 
-uint8_t state = STATE_RESET;
+//===================================================
+// Constants: Timing values for the sensor & display state machine
+
+// define startup calibration time: 2h
+//#define STARTUP_TIME (60*60*2)
+#define STARTUP_TIME (60)
+
+// define startup calibration time: 30 seconds
+#define DISPLAY_TIME ((30))
+
+// Datasheet, page 8:
+// For the first 15s after the “Init_air_quality” command  the  sensor  
+// is  in  an  initialization  phase  during  which  a  “Measure_air_quality”  
+// command  returns  fixed  values
+// --> sensor warmup time
+#define SENSOR_WARMUP_TIME ((16))
+
+#define SENSOR_MEASURE_TIME (14)
+
+// the sum of SENSOR_WARMUP_TIME and SENSOR_MEASURE_TIME must 
+// be lesser than SENSOR_SAMPLE_TIME
+#define SENSOR_SAMPLE_TIME (2*60)
+
+
+// number of seconds, for which a new display is fixed
+#define NEW_DISPLAY_COOL_DOWN 4
+
+// number of shakes required to change the display
+#define NEW_DISPLAY_SHAKE_THRESHOLD 5
+
+//===================================================
+// Constants: Temperature boundaries
+
+#define TEMP_LOW -20
+#define TEMP_HIGH (TEMP_LOW+120)
+
+//===================================================
+// Constants: Number of different display pages
+#define DISPLAY_CNT 3
+
+//===================================================
+// Constants: History 
+
+#define HIST_CNT 96
+
+// history sample time: number of seconds between each history entry
+// 15 min = 15*60 seconds: 96 entries for 24h
+#define HISTORY_SAMPLE_TIME (15*60)
+
+//===================================================
+// State variable for the sensor & display coordination
+
+uint8_t state = STATE_RESET;		// assign STATE_xxx constants
+
+uint8_t is_display_enabled = 0;		// modified by enable_display() and disable_display()
 
 
 //===================================================
+// Variables: Air quality sensor related varables
 
-#define HIST_CNT 64
-#define HIST_VAUES 5
-#define TEMP_LOW -20
-#define TEMP_HIGH (TEMP_LOW+120)
+float temperature_raw;
+float humidity_raw;
+uint8_t temperature;	/* with offset and multiplied by 2 */
+uint8_t humidity;		/* *2 */
+uint16_t tvoc_raw;
+uint16_t tvoc_lp;
+uint16_t eco2_raw;
+uint16_t eco2_lp;
+int is_air_quality_available = 0;
+
+// Calibration values, values seem to be 0x8a27 and 0x08a98 for my sensor, so 0 will be used as not set
+uint16_t eco2_base = 0;		// calibration value eCO2
+uint16_t tvoc_base = 0;		// calibration value TVOC
+
+//===================================================
+// Variables: Timer for the state machine
+
+volatile uint32_t wdt_count = 0;
+volatile uint8_t wdt_sec = 0;
+volatile uint8_t wdt_min = 0;
+volatile uint8_t wdt_hour = 0;
+volatile uint16_t wdt_day = 0;
+
+
+volatile uint16_t startup_timer = 0;
+volatile uint16_t sensor_sample_timer = SENSOR_SAMPLE_TIME;
+volatile uint8_t is_sensor_sample_timer_alarm = 0;
+volatile uint8_t display_timer = 0;
+
+volatile uint8_t sensor_warmup_timer = 0;
+volatile uint8_t sensor_measure_timer = 0;
+
+volatile uint8_t new_display_cool_down_timer = 0;
+
+volatile uint8_t is_wdt_irq = 0;
+
+uint32_t millis_sensor;
+uint32_t millis_display;
+
+
+
+//===================================================
+// Variables: Shake detection
+
+volatile uint8_t is_shake = 0;
+volatile uint8_t shake_cnt = 0;
+volatile uint8_t shake_last_cnt = 0;
+
+//===================================================
+// Variables: Current visible display
+
+uint8_t current_display = 0; // 0 .. DISPLAY_CNT - 1
+
+//===================================================
+// Variables: History management
 
 uint8_t hist_start = 0;
 uint8_t hist_end = 1;
 uint8_t hist_last = 0;
 
+uint16_t hist_eco2_max[HIST_CNT];
+uint16_t hist_eco2_min[HIST_CNT];
+
+//uint8_t hist_temp_max[HIST_CNT];
+//uint8_t hist_temp_min[HIST_CNT];
+
+//uint8_t hist_rh_max[HIST_CNT];
+//uint8_t hist_rh_min[HIST_CNT];
+
+//===================================================
 
 void hist_append(void)
 {
@@ -110,60 +242,83 @@ void hist_append(void)
   }
 }
 
-uint16_t hist_eco2_max[HIST_CNT];
-uint16_t hist_eco2_min[HIST_CNT];
 
-uint8_t hist_temp_max[HIST_CNT];
-uint8_t hist_temp_min[HIST_CNT];
+uint16_t maximum(uint16_t a, uint16_t b)
+{
+  if ( a < b )
+    return b;
+  return a;
+}
 
-uint8_t hist_rh_max[HIST_CNT];
-uint8_t hist_rh_min[HIST_CNT];
+uint16_t minimum(uint16_t a, uint16_t b)
+{
+  if ( a > b )
+    return b;
+  return a;
+}
+
+
+/* append current values to last history entry */
+void add_hist_minmax(void)
+{
+  
+  hist_eco2_max[hist_last] = maximum(hist_eco2_max[hist_last], eco2_raw);
+  hist_eco2_min[hist_last] = minimum(hist_eco2_min[hist_last], eco2_raw);
+
+  //hist_temp_max[hist_last] = maximum(hist_temp_max[hist_last], temperature);
+  //hist_temp_min[hist_last] = minimum(hist_temp_min[hist_last], temperature);
+
+  //hist_rh_max[hist_last] = maximum(hist_rh_max[hist_last], humidity);
+  //hist_rh_min[hist_last] = minimum(hist_rh_min[hist_last], humidity);
+}
+
+void add_hist_new(void)
+{
+  hist_append();
+
+  hist_eco2_max[hist_last] = eco2_raw;
+  hist_eco2_min[hist_last] = eco2_raw;
+
+  //hist_temp_max[hist_last] = temperature;
+  //hist_temp_min[hist_last] = temperature;
+
+  //hist_rh_max[hist_last] = humidity;
+  //hist_rh_min[hist_last] = humidity;
+
+}
+
+
 
 
 
 //===================================================
-// http://shelvin.de/arduino-in-den-sleep_mode_pwr_down-schlaf-modus-setzen/
 
-
-// define startup calibration time: 2h
-//#define STARTUP_TIME (60*60*2)
-
-#define STARTUP_TIME (60)
-
-// define startup calibration time: 30 seconds
-#define DISPLAY_TIME ((30))
-
-// Datasheet, page 8:
-// For the first 15s after the “Init_air_quality” command  the  sensor  
-// is  in  an  initialization  phase  during  which  a  “Measure_air_quality”  
-// command  returns  fixed  values
-// --> sensor warmup time
-#define SENSOR_WARMUP_TIME ((16))
-
-#define SENSOR_MEASURE_TIME (14)
-
-// the sum of SENSOR_WARMUP_TIME and SENSOR_MEASURE_TIME must 
-// be lesser than SENSOR_SAMPLE_TIME
-#define SENSOR_SAMPLE_TIME (2*60)
-
-// count WDT interrupts. Interrupt will happen every 4 seconds, so overflow happens after 544 years
-volatile uint32_t wdt_count = 0;
-
-volatile uint16_t startup_timer = 0;
-volatile uint16_t sensor_sample_timer = SENSOR_SAMPLE_TIME;
-volatile uint8_t is_sensor_sample_timer_alarm = 0;
-volatile uint8_t display_timer = 0;
-
-volatile uint8_t sensor_warmup_timer = 0;
-volatile uint8_t sensor_measure_timer = 0;
-
-volatile uint8_t is_shake = 0;
-volatile uint8_t shake_cnt = 0;
-volatile uint8_t shake_last_cnt = 0;
 
 ISR(WDT_vect) 
 {
+  is_wdt_irq = 1;
   wdt_count++; 
+  
+  
+  wdt_sec++;
+  if ( wdt_sec >= 60 )
+  {
+    wdt_sec = 0;
+    wdt_min++;
+    if ( wdt_min >= 60 )
+    {
+      wdt_min = 0;
+      wdt_hour++;
+      if ( wdt_hour >= 24 )
+      {	
+	wdt_day++;
+      }
+    }
+  }
+  
+  
+  
+  
   if ( startup_timer > 0 )
     startup_timer--;
   if ( display_timer > 0 )
@@ -213,23 +368,36 @@ void detectShake(void)
 
 void setup(void) {
   reducePower();
+  Wire.begin();
 
   u8g2.begin();  
   u8g2.enableUTF8Print();
   
-  u8g2.setFont(u8g2_font_5x7_mr);	// set the font for the terminal window
+  u8g2.setFont(FONT_NARROW);	// set the font for the terminal window
   u8g2log.begin(u8g2, U8LOG_WIDTH, U8LOG_HEIGHT, u8log_buffer);
   u8g2log.setLineHeightOffset(0);	// set extra space between lines in pixel, this can be negative
   u8g2log.setRedrawMode(0);		// 0: Update screen with newline, 1: Update screen for every char  
 
   
   u8g2log.print(F("Air Quality\n"));
+  
+#ifdef USE_ADAFRUIT_SHT31_LIB
   if (sht31.begin(0x44)) {   				// 0x45 for alternate i2c addr
     u8g2log.print(F("SHT31 found at 0x44\n"));
   } else {
     u8g2log.print(F("SHT31 not found\n"));
     while (1);
   }
+#else // USE_ADAFRUIT_SHT31_LIB
+  if (sht.init()) {
+    u8g2log.print(F("SHT31 found at 0x44\n"));
+  } else {
+    u8g2log.print(F("SHT31 not found\n"));
+    while (1);
+  }
+  sht.setAccuracy(SHTSensor::SHT_ACCURACY_HIGH); 
+#endif // USE_ADAFRUIT_SHT31_LIB
+
 
   if (sgp.begin()) {   				
     u8g2log.print(F("SGP30 found\n"));
@@ -242,22 +410,28 @@ void setup(void) {
   u8g2log.print(sgp.serialnumber[0], HEX);
   u8g2log.print(sgp.serialnumber[1], HEX);
   u8g2log.println(sgp.serialnumber[2], HEX);
+  
 
   delay(1000);
   
   // tilt detection at pin 2
   pinMode(2, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(2), detectShake, CHANGE);
-  
+
+  set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
+
   enableWDT();
 }
+
+//===================================================
 
 /* 
   Calculate absolute humidity [mg/m^3]
   Args: Temperature [°C], humidity [%RH]
 */
 
-uint32_t getAbsoluteHumidity(float temperature, float humidity) {
+uint32_t getAbsoluteHumidity(float temperature, float humidity) 
+{
     // approximation formula from Sensirion SGP30 Driver Integration chapter 3.15
     const float absoluteHumidity = 216.7f * ((humidity / 100.0f) * 6.112f * exp((17.62f * temperature) / (243.12f + temperature)) / (273.15f + temperature)); // [g/m^3]
     const uint32_t absoluteHumidityScaled = static_cast<uint32_t>(1000.0f * absoluteHumidity); // [mg/m^3]
@@ -265,28 +439,29 @@ uint32_t getAbsoluteHumidity(float temperature, float humidity) {
 }
 
 
-float temperature_raw;
-float humidity_raw;
-uint8_t temperature;	/* with offset and multiplied by 2 */
-uint8_t humidity;		/* *2 */
-uint16_t tvoc_raw;
-uint16_t tvoc_lp;
-uint16_t eco2_raw;
-uint16_t eco2_lp;
-int is_air_quality_available = 0;
-
 
 void startAirQuality(void)
 {
 }
+
+uint8_t new_counter = 0; 
 
 void readAirQuality(void)
 {
   uint8_t i;
   int32_t tvoc_coeff = 7;	// 1..32
   int32_t eco2_coeff = 7;	// 1..32
-  
+
+
+#ifdef USE_ADAFRUIT_SHT31_LIB
   temperature_raw = sht31.readTemperature();
+  humidity_raw = sht31.readHumidity();
+#else // USE_ADAFRUIT_SHT31_LIB
+  sht.readSample();
+  temperature_raw = sht.getTemperature();
+  humidity_raw = sht.getHumidity();
+#endif // USE_ADAFRUIT_SHT31_LIB
+
   
   if ( temperature_raw <= (float)TEMP_LOW )
   {
@@ -302,10 +477,10 @@ void readAirQuality(void)
     temperature = (uint8_t)((temperature_raw-(float)TEMP_LOW)*2.0);
   }
   
-  humidity_raw = sht31.readHumidity();
   humidity = (uint8_t)((humidity_raw)*2.0);
 
   sgp.setHumidity(getAbsoluteHumidity(temperature_raw, humidity_raw));
+  
   is_air_quality_available = sgp.IAQmeasure();
 
   if ( is_air_quality_available )
@@ -318,52 +493,16 @@ void readAirQuality(void)
     tvoc_raw = 0;
     eco2_raw = 400;
   }
-}
-
-
-uint16_t maximum(uint16_t a, uint16_t b)
-{
-  if ( a < b )
-    return b;
-  return a;
-}
-
-uint16_t minimum(uint16_t a, uint16_t b)
-{
-  if ( a > b )
-    return b;
-  return a;
-}
-
-
-/* append current values to last history entry */
-void add_hist_minmax(void)
-{
   
-  hist_eco2_max[hist_last] = maximum(hist_eco2_max[hist_last], eco2_raw);
-  hist_eco2_min[hist_last] = minimum(hist_eco2_min[hist_last], eco2_raw);
-
-  hist_temp_max[hist_last] = maximum(hist_temp_max[hist_last], temperature);
-  hist_temp_min[hist_last] = minimum(hist_temp_min[hist_last], temperature);
-
-  hist_rh_max[hist_last] = maximum(hist_rh_max[hist_last], humidity);
-  hist_rh_min[hist_last] = minimum(hist_rh_min[hist_last], humidity);
+  if ( (new_counter & 3) == 0 )
+    add_hist_new();
+  else
+    add_hist_minmax();
+  new_counter++;
+  
 }
 
-void add_hist_new(void)
-{
-  hist_append();
 
-  hist_eco2_max[hist_last] = eco2_raw;
-  hist_eco2_min[hist_last] = eco2_raw;
-
-  hist_temp_max[hist_last] = temperature;
-  hist_temp_min[hist_last] = temperature;
-
-  hist_rh_max[hist_last] = humidity;
-  hist_rh_min[hist_last] = humidity;
-
-}
 
 uint16_t get_uint8(void *ptr, uint8_t pos)
 {
@@ -431,8 +570,8 @@ void draw_graph( uint16_t (*get_val)(void *ptr, uint8_t pos), void *min_array, v
   }
   if ( min > max )
     return;
-  if ( min + 32 >= max )
-    max = min + 32;
+  if ( min + 30 >= max )
+    max = min + 30;
     
   if ( max - min < 100 )
   {
@@ -466,12 +605,12 @@ void draw_graph( uint16_t (*get_val)(void *ptr, uint8_t pos), void *min_array, v
       i = 0;
     if ( i == hist_end )
       break;
-    ymin = ((unsigned long)(get_val(min_array, ii) - min)*32UL)/delta;
-    ymax = ((unsigned long)(get_val(max_array, ii) - min)*32UL)/delta;
+    ymin = ((unsigned long)(get_val(min_array, ii) - min)*30UL)/delta;
+    ymax = ((unsigned long)(get_val(max_array, ii) - min)*30UL)/delta;
     u8g2.drawVLine(x, 63-ymax, ymax-ymin+1);
     x++;
   }
-  u8g2.setCursor(0, 43);
+  u8g2.setCursor(0, 46);
   draw_value(max);
   u8g2.setCursor(0, 63);
   draw_value(min);
@@ -556,6 +695,13 @@ void draw_eco2(void)
 
 //===================================================
 
+void draw_1_2_eco2_history(u8g2_uint_t x, u8g2_uint_t y)
+{
+    u8g2.setFont(FONT_NARROW);
+  
+    draw_graph( get_uint16, hist_eco2_min, hist_eco2_max, draw_16bit);
+}
+
 void draw_1_4_temperature(u8g2_uint_t x, u8g2_uint_t y)
 {
     u8g2.setFont(FONT_MED_NUM);
@@ -584,52 +730,123 @@ void draw_1_4_eco2(u8g2_uint_t x, u8g2_uint_t y)
 {
   u8g2.setFont(FONT_SMALL);
 
-  u8g2.setCursor(x, y+45-32);
+  u8g2.setCursor(x, y+10);
   u8g2.print(F("ppm CO"));
-  u8g2.setCursor(x+40, y+50-32);
+  u8g2.setCursor(x+40, y+15);
   u8g2.print(F("²"));
 
   u8g2.setFont(FONT_MED_NUM);
 
-  u8g2.setCursor(x, y+63-32);
+  u8g2.setCursor(x, y+28);
   u8g2.print(eco2_raw);
 }
 
 void draw_1_4_tvoc(u8g2_uint_t x, u8g2_uint_t y)
 {
   u8g2.setFont(FONT_SMALL);
-  u8g2.setCursor(x, y+45-32);
+  u8g2.setCursor(x, y+10);
   u8g2.print(F("ppb TVOC"));
 
   u8g2.setFont(FONT_MED_NUM);
 
-  u8g2.setCursor(x, y+63-32);
+  u8g2.setCursor(x, y+28);
   u8g2.print(tvoc_raw);
 }
 
-void draw_1_4_wdt_count(u8g2_uint_t x, u8g2_uint_t y)
+void draw_1_4_base(u8g2_uint_t x, u8g2_uint_t y)
 {
   u8g2.setFont(FONT_SMALL);
-  u8g2.setCursor(x, y+45-32);
-  u8g2.print(F("WDT Count"));
-
-  u8g2.setFont(FONT_MED_NUM);
-
-  u8g2.setCursor(x, y+63-32);
+  u8g2.setCursor(x, y+11);
+  u8g2.print(F("Sec "));
   u8g2.print(wdt_count);
+
+  u8g2.setCursor(x, y+21);
+  u8g2.print(F("B-C  "));
+  u8g2.print(eco2_base, HEX);
+
+  u8g2.setCursor(x, y+31);
+  u8g2.print(F("B-T "));
+  u8g2.print(tvoc_base, HEX);
+
 }
+
+void draw_1_4_delay(u8g2_uint_t x, u8g2_uint_t y)
+{
+  u8g2.setFont(FONT_SMALL);
+  u8g2.setCursor(x, y+11);
+  u8g2.print(F("Sens "));
+  u8g2.print(millis_sensor);
+
+  u8g2.setCursor(x, y+21);
+  u8g2.print(F("Disp "));
+  u8g2.print(millis_display);
+
+}
+
+void draw_1_4_uptime(u8g2_uint_t x, u8g2_uint_t y)
+{
+  u8g2.setFont(FONT_SMALL);
+  u8g2.setCursor(x, y+11);
+  u8g2.print(F("Day "));
+  u8g2.print(wdt_day);
+
+  u8g2.setCursor(x, y+21);
+  u8g2.print(F("Hour "));
+  u8g2.print(wdt_hour);
+
+  u8g2.setCursor(x, y+31);
+  u8g2.print(F("Min "));
+  u8g2.print(wdt_min);
+}
+
+
+
+
 
 void draw_1_4_system(u8g2_uint_t x, u8g2_uint_t y)
 {
   u8g2.setFont(FONT_SMALL);
-  u8g2.setCursor(x, y+45-32);
+  u8g2.setCursor(x, y+11);
   u8g2.print(F("Shake "));
   u8g2.print(shake_last_cnt);
-  
-  u8g2.setCursor(x, y+45-32+10);
+
+  u8g2.setCursor(x, y+21);
+  u8g2.print(F("Cool "));
+  u8g2.print(new_display_cool_down_timer);
+
+  u8g2.setCursor(x, y+31);
   u8g2.print(F("State "));
   u8g2.print(state);
 
+}
+
+void draw_1_4_battery(u8g2_uint_t x, u8g2_uint_t y)
+{
+  u8g2.setFont(u8g2_font_battery19_tn);
+
+/*
+STATE_STARTUP_DISP_ON 1
+STATE_WARMUP_DISP_ON 11
+STATE_MEASURE_DISP_ON 21
+*/
+
+  if ( state == STATE_WARMUP_DISP_ON )
+  {
+    uint16_t l = sensor_warmup_timer;
+    l *= 9;
+    l /= SENSOR_WARMUP_TIME;
+    
+    u8g2.drawGlyph(x, y+25, 50);
+    
+    u8g2.setFont(FONT_SMALL);
+    u8g2.drawGlyph(x, y+5, '0' + l);
+  }
+  else
+  {
+    u8g2.drawGlyph(x, y+20, 50);
+  }
+
+  
 }
 
 void draw_1_4_emoticon(u8g2_uint_t x, u8g2_uint_t y)
@@ -677,7 +894,9 @@ void draw_1_4_emoticon(u8g2_uint_t x, u8g2_uint_t y)
   if ( emo_idx < eco2_idx )
     emo_idx = eco2_idx;
   u8g2.setFont(u8g2_font_emoticons21_tr);
-  u8g2.drawGlyph(x+20, y+21+6, 32+emo_idx);
+  u8g2.drawGlyph(x+20, y+21, 32+emo_idx);
+
+  
 }
 
 //===================================================
@@ -696,8 +915,8 @@ void draw_all_numbers(void)
 
     if ( is_air_quality_available )
     {
-      draw_1_4_eco2(1, 32);
-      draw_1_4_tvoc(66, 32);
+      draw_1_4_eco2(1, 32+3);
+      draw_1_4_tvoc(66, 32+3);
     }
       
   } while ( u8g2.nextPage() );
@@ -709,20 +928,73 @@ void draw_with_emo(void)
   u8g2.setFontMode(1);
   u8g2.firstPage();
   do {
+    //u8g2.drawHLine(0, 32, 128);
+    //u8g2.drawVLine(62, 0, 64);
+
     u8g2.drawHLine(0, 32, 128);
-    u8g2.drawVLine(62, 0, 64);
-  
+    u8g2.drawVLine(62-14, 0, 32);
+    u8g2.drawVLine(98, 0, 32);
+    u8g2.drawVLine(62-8, 32, 32);
+    u8g2.drawVLine(128-12, 32, 32);
+
     
     draw_1_4_temperature(1, 0);
-    draw_1_4_humidity(66, 0);
+    draw_1_4_humidity(66-14, 0);
+    draw_1_4_emoticon(127-20-21, 4);
     //draw_1_4_wdt_count(66, 0);
 
     if ( is_air_quality_available )
     {
-      draw_1_4_eco2(1, 32);
-      //draw_1_4_emoticon(66, 32);
-      draw_1_4_system(66, 32);
+      draw_1_4_eco2(1, 32+3);
+      //draw_1_4_emoticon(66, 32+6);
+      draw_1_4_tvoc(66-8, 32+3);      
     }
+      
+    draw_1_4_battery(128-8, 32+7);
+  } while ( u8g2.nextPage() );
+}
+
+void draw_system(void)
+{
+  u8g2.setFontMode(1);
+  u8g2.firstPage();
+  do {
+    u8g2.drawHLine(0, 32, 128);
+    u8g2.drawVLine(62, 0, 64);
+  
+    
+    draw_1_4_uptime(1, 0);
+    //draw_1_4_delay(1,0);
+    //draw_1_4_temperature(1, 0);
+    draw_1_4_eco2(66, 0);
+    //draw_1_4_humidity(66, 0);
+    //draw_1_4_wdt_count(66, 0);
+
+    draw_1_4_base(0, 32);
+    draw_1_4_system(66, 32);
+      
+  } while ( u8g2.nextPage() );
+}
+
+
+void draw_with_history(void)
+{
+  u8g2.setFontMode(1);
+  u8g2.firstPage();
+  do {
+    u8g2.drawHLine(0, 32, 128);
+    u8g2.drawVLine(62-20, 0, 32);
+    u8g2.drawVLine(98, 0, 32);
+  
+    
+    draw_1_4_temperature(1, 0);
+    if ( is_air_quality_available )
+    {
+      draw_1_4_eco2(66-20, 0);
+      draw_1_4_emoticon(127-20-21, 4);
+    }
+    
+    draw_1_2_eco2_history(0, 32);
       
   } while ( u8g2.nextPage() );
 }
@@ -737,14 +1009,65 @@ uint8_t is_display_on_event(void)
   return 0;
 }
 
+void handle_new_display(void)
+{
+  if ( new_display_cool_down_timer > 0 )
+  {
+    new_display_cool_down_timer--;    
+  }
+  else
+  {
+    if ( shake_last_cnt > NEW_DISPLAY_SHAKE_THRESHOLD )
+    {
+      new_display_cool_down_timer = NEW_DISPLAY_COOL_DOWN;
+      current_display++;
+      if ( current_display >= DISPLAY_CNT )
+	current_display = 0;
+    }
+  }
+}
+
+void disable_display(void)
+{
+  u8g2.clear();
+  u8g2.setPowerSave(1);
+  is_display_enabled = 0;
+}
+
+void enable_display(void)
+{
+  is_display_enabled = 1;
+  u8g2.setPowerSave(0);
+}
+
+void disable_sensors(void)
+{
+  /* both sensors will go to idle/sleep mode when the I2C soft reset is sent */
+  Wire.beginTransmission(0);
+  Wire.write(6);
+  Wire.endTransmission(true);	// true: send full stop on I2C
+
+  delay(5);
+  
+}
+
+void enable_sensors(void)
+{
+  sht.init();
+  sgp.IAQinit();
+  delay(5);
+}
+
 //===================================================
 
 
 void next_state(void)
 {
+  uint32_t start;
   switch(state)
   {
     case STATE_RESET:
+      enable_display();
       startup_timer = STARTUP_TIME;
       state = STATE_STARTUP_DISP_ON;
       display_timer = DISPLAY_TIME;
@@ -753,11 +1076,20 @@ void next_state(void)
     // - - -  Start Up - - -
       
     case STATE_STARTUP_DISP_ON:
+      start = millis();
+      sgp.getIAQBaseline(&eco2_base, &tvoc_base);	// always store the calibration values during measure
+      readAirQuality();
+      millis_sensor = millis() - start;
+      
       if ( is_display_on_event() )
+      {
+	// display is already enabled, but the timer is reseted
 	display_timer = DISPLAY_TIME;
-	
+      }
+      
       if ( display_timer == 0 )
       {
+	disable_display();
 	state = STATE_STARTUP_DISP_OFF;
       }
       else if ( startup_timer == 0 )
@@ -766,9 +1098,17 @@ void next_state(void)
 	state = STATE_MEASURE_DISP_ON;
       }
       break;
+      
     case STATE_STARTUP_DISP_OFF:
+      start = millis();
+      sgp.getIAQBaseline(&eco2_base, &tvoc_base);	// always store the calibration values during measure
+      readAirQuality();
+      millis_sensor = millis() - start;
+      
       if ( is_display_on_event() )
       {
+	enable_display();
+	display_timer = DISPLAY_TIME;
 	state = STATE_STARTUP_DISP_ON;
       }
       else if ( startup_timer == 0 )
@@ -782,14 +1122,23 @@ void next_state(void)
       
     case STATE_WARMUP_DISP_ON:				// DONE
       if ( is_display_on_event() )
+      {
+	// display is already enabled, but the timer is reseted
 	display_timer = DISPLAY_TIME;
+      }
 
       if ( display_timer == 0 )
       {
+	disable_display();
 	state = STATE_WARMUP_DISP_OFF;
       }
       else if ( sensor_warmup_timer == 0 )
       {
+	// set the baseline at the end of the warmup
+	// this is described in the "SGP30 Driver Integration"
+	if ( eco2_base != 0 )
+	  sgp.setIAQBaseline(eco2_base, tvoc_base);		// Restore the baseline values
+	  
 	sensor_measure_timer = SENSOR_MEASURE_TIME;
 	state = STATE_MEASURE_DISP_ON;
       }
@@ -798,11 +1147,17 @@ void next_state(void)
     case STATE_WARMUP_DISP_OFF:		// DONE
       if ( is_display_on_event() )
       {
+	enable_display();
 	display_timer = DISPLAY_TIME;
 	state = STATE_WARMUP_DISP_ON;
       }
       else if ( sensor_warmup_timer == 0 )
       {
+	// set the baseline at the end of the warmup
+	// this is described in the "SGP30 Driver Integration"
+	if ( eco2_base != 0 )
+	  sgp.setIAQBaseline(eco2_base, tvoc_base);		// Restore the baseline values
+	        
 	sensor_measure_timer = SENSOR_MEASURE_TIME;
 	state = STATE_MEASURE_DISP_OFF;
       }
@@ -811,11 +1166,20 @@ void next_state(void)
     // - - -  Sensor Measure - - -
 
     case STATE_MEASURE_DISP_ON:				// DONE
+      start = millis();
+      sgp.getIAQBaseline(&eco2_base, &tvoc_base);	// always store the calibration values during measure
+      readAirQuality();
+      millis_sensor = millis() - start;
+      
       if ( is_display_on_event() )
+      {
+	// display is already enabled, but the timer is reseted
 	display_timer = DISPLAY_TIME;
+      }
 	
       if ( display_timer == 0 )
       {
+	disable_display();
 	state = STATE_MEASURE_DISP_OFF;
       }
       else if ( sensor_measure_timer == 0 )
@@ -825,13 +1189,20 @@ void next_state(void)
       break;
       
     case STATE_MEASURE_DISP_OFF:		// DONE
+      start = millis();
+      sgp.getIAQBaseline(&eco2_base, &tvoc_base);	// always store the calibration values during measure
+      readAirQuality();
+      millis_sensor = millis() - start;
+      
       if ( is_display_on_event() )
       {
+	enable_display();
 	display_timer = DISPLAY_TIME;
 	state = STATE_MEASURE_DISP_ON;
       }
       else if ( sensor_measure_timer == 0 )
       {
+	disable_sensors();
 	state = STATE_SENSOR_SLEEP_DISP_OFF;
       }
       break;
@@ -841,13 +1212,20 @@ void next_state(void)
     case STATE_SENSOR_SLEEP_DISP_OFF:			// DONE
       if ( is_display_on_event() )
       {
-	sensor_warmup_timer = SENSOR_WARMUP_TIME;
+	enable_display();
 	display_timer = DISPLAY_TIME;
+	
+	enable_sensors();
+	
+	sensor_warmup_timer = SENSOR_WARMUP_TIME;
 	state = STATE_WARMUP_DISP_ON;
       }
       else if ( is_sensor_sample_timer_alarm != 0 )
       {
 	is_sensor_sample_timer_alarm = 0;
+	
+	enable_sensors();
+	  
 	sensor_warmup_timer = SENSOR_WARMUP_TIME;
 	state = STATE_WARMUP_DISP_OFF;
       }
@@ -861,33 +1239,43 @@ void next_state(void)
 
 
 
-
 //===================================================
 
 
-uint16_t eco2_base;
-uint16_t tvoc_base;
-
-uint8_t new_counter = 0; 
 
 void loop(void) {
   uint8_t i;
   u8g2_uint_t g;
-  
-  
-  readAirQuality();
-  if ( (new_counter & 3) == 0 )
-    add_hist_new();
-  else
-    add_hist_minmax();
-  new_counter++;
-  
-  sgp.getIAQBaseline(&eco2_base, &tvoc_base);
-  draw_with_emo();
+  uint32_t start;
+
+  if ( is_wdt_irq )
+  {
+    is_wdt_irq = 0;
+
+    next_state();
+    handle_new_display();
+
+    if ( is_display_enabled )		// "is_display_enabled" will be calculated in next_state()
+    {
+      start = millis();
+      if ( current_display == 2 )
+	draw_with_emo();
+      else if ( current_display == 1 )
+	draw_with_history();
+      else if ( current_display == 0 )
+	draw_system();      
+      millis_display = millis() - start;
+    }
+    else
+    {
+      millis_display = 0;
+    }
+  }
 
   set_sleep_mode(SLEEP_MODE_PWR_DOWN); 
+  //noInterrupts();
   sleep_enable(); 
+  //interrupts();  
   sleep_mode(); 
   sleep_disable(); 
-  next_state();
 }
