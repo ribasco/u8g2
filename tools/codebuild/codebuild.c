@@ -2,6 +2,14 @@
 
   generate and update c/c++ files
   this also replaces the buildcpp tool
+  
+  
+  Dec 2018:
+  There are now two SSD13xx cad procedures:
+    u8x8_cad_ssd13xx_i2c			Put a I2C start/stop around each command and each argument	--> many start/stop commands
+    u8x8_cad_ssd13xx_fast_i2c		Put a I2C start/stop around each command+arg sequence		--> start/stop is probably halfed --> 4% faster
+
+  
 
 */
 
@@ -119,7 +127,7 @@ struct controller controller_list[] =
     }
   },
   {
-    "ssd1306", 	16, 	8, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_i2c", "i2c", COM_I2C,
+    "ssd1306", 	16, 	8, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_fast_i2c", "i2c", COM_I2C,
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "128x64_noname" },
@@ -278,7 +286,7 @@ struct controller controller_list[] =
     }
   },
   {
-    "ssd1306", 	16, 	4, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_i2c", "i2c", COM_I2C,
+    "ssd1306", 	16, 	4, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_fast_i2c", "i2c", COM_I2C,
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "128x32_univision" },
@@ -295,7 +303,7 @@ struct controller controller_list[] =
     }
   },
   {
-    "ssd1306", 	8, 	6, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_i2c", "i2c", COM_I2C,
+    "ssd1306", 	8, 	6, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_fast_i2c", "i2c", COM_I2C,
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "64x48_er" },
@@ -312,7 +320,7 @@ struct controller controller_list[] =
     }
   },
   {
-    "ssd1306", 	6, 	8, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_i2c", "i2c", COM_I2C,
+    "ssd1306", 	6, 	8, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_fast_i2c", "i2c", COM_I2C,
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "48x64_winstar" },
@@ -331,7 +339,7 @@ struct controller controller_list[] =
     }
   },
   {
-    "ssd1306", 	8, 	4, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_i2c", "i2c", COM_I2C,
+    "ssd1306", 	8, 	4, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_fast_i2c", "i2c", COM_I2C,
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "64x32_noname" },
@@ -349,7 +357,7 @@ struct controller controller_list[] =
     }
   },
   {
-    "ssd1306", 	12, 	2, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_i2c", "i2c", COM_I2C,
+    "ssd1306", 	12, 	2, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_fast_i2c", "i2c", COM_I2C,
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "96x16_er" },
@@ -409,6 +417,25 @@ struct controller controller_list[] =
       { NULL }
     }
   },
+  
+  /* issue 784 */
+  {
+    "ssd1318", 	16, 	12, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_3WSPI|COM_6800|COM_8080|COM_8080,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "128x96" },
+      { NULL }
+    }
+  },
+  {
+    "ssd1318", 	16, 	12, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_fast_i2c", "i2c", COM_I2C,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "128x96" },
+      { NULL }
+    }
+  },  
+  
   
   {
     "ssd1325", 	16, 	8, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_3WSPI|COM_6800|COM_8080,
@@ -814,6 +841,7 @@ struct controller controller_list[] =
       { "lm6059" },
       { "lx12864" },
       { "erc12864" },
+      { "erc12864_alt" },	/* issue 790 */
       { "nhd_c12864" },
       { "jlx12864" },
       { NULL }
@@ -1133,6 +1161,7 @@ struct controller controller_list[] =
     "Not tested", /* is_generate_u8g2_class= */ 1,
     {
       { "128x64" },
+      { "128x64_alt" },
       { NULL }
     }
   },
@@ -1174,7 +1203,7 @@ struct controller controller_list[] =
     {
       { "200x200" },
       { "gd_200x200" },	// GDEP015OC1
-      //{ "v2_200x200" },
+      { "ws_200x200" },	// Waveshare issue #637
       { NULL }
     }
   },
@@ -1403,6 +1432,17 @@ struct interface interface_list[] =
     "d0, d1, d2, d3, d4, d5, d6, d7, dc, e1, e2, reset",
     "d0, d1, d2, d3, d4, d5, d6, d7, dc, e1, e2, reset",
     "u8x8_byte_sed1520"
+  },  
+  /* 14 */
+  {
+    /* ST7920 */ "2ND_HW_SPI",
+    "u8x8_SetPin_ST7920_HW_SPI",
+    "u8x8_byte_arduino_2nd_hw_spi",
+    "u8x8_gpio_and_delay_arduino",   
+    "uint8_t cs, uint8_t reset = U8X8_PIN_NONE",
+    "cs, reset",
+    "cs [, reset]",
+    "uC specific"
   },  
   
 
@@ -1751,7 +1791,8 @@ void do_display(int controller_idx, int display_idx, const char *postfix)
   if ( controller_list[controller_idx].com & COM_ST7920SPI )
   {
     do_display_interface(controller_idx, display_idx, postfix, 8);		/* ST7920 SW SPI */
-    do_display_interface(controller_idx, display_idx, postfix, 9);		/* HW SPI (not yet implemented) */
+    do_display_interface(controller_idx, display_idx, postfix, 9);		/* HW SPI  */
+    do_display_interface(controller_idx, display_idx, postfix, 14);		/* 2ND HW SPI  */
   }
   if ( controller_list[controller_idx].com & COM_UART )
   {
@@ -1995,6 +2036,7 @@ void do_md_controller_list(void)
       {
 	do_md_display_interface(controller_idx, display_idx, 8);		/* ST7920 SW SPI */
 	do_md_display_interface(controller_idx, display_idx, 9);		/* HW SPI (not yet implemented) */
+ 	do_md_display_interface(controller_idx, display_idx, 14);		/* 2ND HW SPI  */
       }
       if ( controller_list[controller_idx].com & COM_KS0108 )
       {

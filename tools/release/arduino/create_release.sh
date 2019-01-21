@@ -15,6 +15,9 @@ rm ./../../../../U8g2_Arduino/src/clib/u8x8_d_stdio.c
 
 # page buffer
 
+mkdir ../../../../U8g2_Arduino/examples/page_buffer/UpdatePartly
+cp ../../../sys/arduino/u8g2_page_buffer/UpdatePartly/*.ino ../../../../U8g2_Arduino/examples/page_buffer/UpdatePartly/.
+
 mkdir ../../../../U8g2_Arduino/examples/page_buffer/ClipWindow
 cp ../../../sys/arduino/u8g2_page_buffer/ClipWindow/*.ino ../../../../U8g2_Arduino/examples/page_buffer/ClipWindow/.
 
@@ -145,6 +148,9 @@ mkdir ../../../../U8g2_Arduino/examples/full_buffer/FPS
 cp ../../../sys/arduino/u8g2_full_buffer/FPS/*.ino ../../../../U8g2_Arduino/examples/full_buffer/FPS/.
 
 # u8x8
+
+mkdir ../../../../U8g2_Arduino/examples/u8x8/16x16Font
+cp ../../../sys/arduino/u8x8/16x16Font/*.ino ../../../../U8g2_Arduino/examples/u8x8/16x16Font/.
 
 mkdir ../../../../U8g2_Arduino/examples/u8x8/Terminal
 cp ../../../sys/arduino/u8x8/Terminal/*.ino ../../../../U8g2_Arduino/examples/u8x8/Terminal/.

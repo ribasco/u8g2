@@ -2,7 +2,7 @@
 
   AirQuality.ino
   
-  ATMEGA328 (Arduino UNO) only
+  ATMEGA328P (Arduino UNO/Pro Trinket) only
 
   Universal 8bit Graphics Library (https://github.com/olikraus/u8g2/)
 
@@ -35,34 +35,106 @@
   
   http://shelvin.de/arduino-in-den-sleep_mode_pwr_down-schlaf-modus-setzen/  
   
+  
+  battery symbol
+    trinket 3.3V requires at least 3.5V (https://learn.adafruit.com/introducing-pro-trinket/pinouts)
+    Assuming 3x AAA and a fresh cell with 1.5V: --> 4.5V
+    There are 6 battery symbols
+    symbol 0: < 3.5V
+    symbol 1: 3.5 - 3.7
+    symbol 2: 3.7 - 3.9
+    symbol 3: 3.9 - 4.1
+    symbol 4: 4.1 - 4-5
+    symbol 5: >= 4.5V    
+    1V difference --> 5 steps --> 1V / 5 --> 0.2V step
+
+    R1 = 470K
+    R2 = 100K
+    Rsum = 570K
+    
+    analogRead will use the internal 1.1V reference signal
+    
+    Um = 100K * 4.5V / 570K = 0.7894 V --> *1024/1.1 --> 735 (analogRead)
+    Um = 100K * 3.5V / 570K = 0.6140 V --> 571 (analogRead)
+    
+    735 - 571 = 164 --> 33    
+    
+    analogRead*1.1/1024 = Um, Um = 100 * Ubat/570
+    analogRead*1.1/1024 = 10 * Ubat/57
+    analogRead*1.1*57/10240 = Ubat
+    Ubat = analogRead*1.1*57/10240 = analogRead*0.006123 = analogRead/163
+    
+    
 */
 
-// The Adafruit_SHT31 lib v1.0.0 should be disabled, because measurement will take 500ms, which is too much
-//#define USE_ADAFRUIT_SHT31_LIB
 
 #include <Arduino.h>
 #include <Wire.h>
 #include <U8g2lib.h>
 #include <Adafruit_SGP30.h>
-#ifdef USE_ADAFRUIT_SHT31_LIB
-#include <Adafruit_SHT31.h>			// adafruit sht31 lib v1.0.0 has a 500 milliseconds delay, 15 are sufficient
-#else // USE_ADAFRUIT_SHT31_LIB
-#include <SHTSensor.h>				
-#endif // USE_ADAFRUIT_SHT31_LIB
+#include <SHTSensor.h>				// adafruit sht31 lib v1.0.0 has a wrong 500 milliseconds delay, so use the SHTSensor.h lib
 #include <avr/sleep.h> 
 
 
+//===================================================
+// Constants: Timing values for the sensor & display state machine
+// all values are "seconds"
+
+// define startup calibration time: 2h
+//#define STARTUP_TIME (60*60*2)
+// five minutes
+#define STARTUP_TIME (60*5)
+
+// define duration after which the display is disabled: 30 seconds
+#define DISPLAY_TIME ((30))
+
+// Datasheet, page 8:
+// For the first 15s after the “Init_air_quality” command  the  sensor  
+// is  in  an  initialization  phase  during  which  a  “Measure_air_quality”  
+// command  returns  fixed  values
+// --> sensor warmup time
+#define SENSOR_WARMUP_TIME ((16))
+
+// SENSOR_MEASURE_TIME defines the duration how long the measurement
+// shell be aktive (after SENSOR_WARMUP_TIME)
+#define SENSOR_MEASURE_TIME (14)
+
+// This is the time, after which the gas sensor should do another measurement.
+// The sum of SENSOR_WARMUP_TIME and SENSOR_MEASURE_TIME must 
+// be lesser than SENSOR_SAMPLE_TIME
+// every 7 minutes, so there are at least two measures per history entry
+#define SENSOR_SAMPLE_TIME (7*60)
+
+// This is the time after which a new history entry is generated
+// There are 96 entries in the history table (HIST_CNT) 
+// 15*60 = 15 minutes --> 96 * 15 minutes --> 24h
+#define NEW_HISTORY_DELAY (15*60)
+//#define NEW_HISTORY_DELAY 2
+
+// changing the content of the display is done via "shakes"
+// shakes are detected by a tilt switsch.
+// This value defines the number of shake events to change the display page.
+#define NEW_DISPLAY_SHAKE_THRESHOLD 7
+
+// number of seconds, for which a new display page is fixed
+// this means, for this duration, the user can not change the display page
+#define NEW_DISPLAY_COOL_DOWN 3
+
+
+// Battery empty value
+// U = 100K * 3.5V / 570K = 0.6140 V --> 571 (analogRead)
+#define BATTERY_LOW 571
+// step width for each battery symbol
+#define BATTERY_STEP 33
+
 
 U8G2_SSD1306_128X64_NONAME_2_HW_I2C u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE);
-#ifdef USE_ADAFRUIT_SHT31_LIB
-Adafruit_SHT31 sht31 = Adafruit_SHT31();	// temperature & humidity sensor
-#else // USE_ADAFRUIT_SHT31_LIB
-SHTSensor sht;
-#endif // USE_ADAFRUIT_SHT31_LIB
+
+SHTSensor sht;							// temperature & humidity sensor
 
 Adafruit_SGP30 sgp;						// air quality sensor
 
-U8G2LOG u8g2log;
+U8G2LOG u8g2log;						
 
 // setup the terminal (U8G2LOG) and connect to u8g2 for automatic refresh of the display
 // The size (width * height) depends on the selected font and the display
@@ -92,38 +164,6 @@ uint8_t u8log_buffer[U8LOG_WIDTH*U8LOG_HEIGHT];
 #define STATE_MEASURE_DISP_OFF 22
 #define STATE_SENSOR_SLEEP_DISP_OFF 32
 
-//===================================================
-// Constants: Timing values for the sensor & display state machine
-
-// define startup calibration time: 2h
-//#define STARTUP_TIME (60*60*2)
-#define STARTUP_TIME (60)
-
-// define startup calibration time: 30 seconds
-#define DISPLAY_TIME ((30))
-
-// Datasheet, page 8:
-// For the first 15s after the “Init_air_quality” command  the  sensor  
-// is  in  an  initialization  phase  during  which  a  “Measure_air_quality”  
-// command  returns  fixed  values
-// --> sensor warmup time
-#define SENSOR_WARMUP_TIME ((16))
-
-#define SENSOR_MEASURE_TIME (14)
-
-// This is the time, after which the gas sensor should do another measurement.
-// The sum of SENSOR_WARMUP_TIME and SENSOR_MEASURE_TIME must 
-// be lesser than SENSOR_SAMPLE_TIME
-#define SENSOR_SAMPLE_TIME (2*60)
-
-// This is the time after which a new history entry is generated
-#define NEW_HISTORY_DELAY (15*60)
-
-// number of seconds, for which a new display is fixed
-#define NEW_DISPLAY_COOL_DOWN 4
-
-// number of shakes required to change the display
-#define NEW_DISPLAY_SHAKE_THRESHOLD 5
 
 //===================================================
 // Constants: Temperature boundaries
@@ -133,7 +173,7 @@ uint8_t u8log_buffer[U8LOG_WIDTH*U8LOG_HEIGHT];
 
 //===================================================
 // Constants: Number of different display pages
-#define DISPLAY_CNT 3
+#define DISPLAY_PAGE_CNT 3
 
 //===================================================
 // Constants: History 
@@ -141,8 +181,8 @@ uint8_t u8log_buffer[U8LOG_WIDTH*U8LOG_HEIGHT];
 #define HIST_CNT 96
 
 // history sample time: number of seconds between each history entry
+// --> see NEW_HISTORY_DELAY
 // 15 min = 15*60 seconds: 96 entries for 24h
-#define HISTORY_SAMPLE_TIME (15*60)
 
 //===================================================
 // State variable for the sensor & display coordination
@@ -155,6 +195,8 @@ uint8_t is_display_enabled = 0;		// modified by enable_display() and disable_dis
 //===================================================
 // Variables: Air quality sensor related varables
 
+uint8_t is_ethanol_read = 0;
+
 float temperature_raw;
 float humidity_raw;
 uint8_t temperature;	/* with offset and multiplied by 2 */
@@ -163,11 +205,17 @@ uint16_t tvoc_raw;
 uint16_t tvoc_lp;
 uint16_t eco2_raw;
 uint16_t eco2_lp;
+uint16_t ethanol_raw = 0;
 int is_air_quality_available = 0;
+
 
 // Calibration values, values seem to be 0x8a27 and 0x08a98 for my sensor, so 0 will be used as not set
 uint16_t eco2_base = 0;		// calibration value eCO2
 uint16_t tvoc_base = 0;		// calibration value TVOC
+
+//===================================================
+uint16_t battery_raw;
+uint16_t battery_glyph; 
 
 //===================================================
 // Variables: Timer for the state machine
@@ -194,10 +242,11 @@ volatile uint8_t is_wdt_irq = 0;
 volatile uint8_t is_new_history_entry = 0;
 volatile uint16_t new_history_timer = NEW_HISTORY_DELAY;
 
+//volatile uint16_t battery_level = 0;	// in millivolt
 
 
-uint32_t millis_sensor;
-uint32_t millis_display;
+uint32_t millis_sensor;	// Debugging: Duration of the sensour measurement
+uint32_t millis_display;	// Debugging: Duration of the display refresh
 
 
 //===================================================
@@ -208,9 +257,9 @@ volatile uint8_t shake_cnt = 0;
 volatile uint8_t shake_last_cnt = 0;
 
 //===================================================
-// Variables: Current visible display
+// Variables: Current visible display page
 
-uint8_t current_display = 0; // 0 .. DISPLAY_CNT - 1
+uint8_t current_display_page = 0; // 0 .. DISPLAY_PAGE_CNT - 1
 
 //===================================================
 // Variables: History management
@@ -317,14 +366,12 @@ ISR(WDT_vect)
       wdt_min = 0;
       wdt_hour++;
       if ( wdt_hour >= 24 )
-      {	
+      {
+	wdt_hour = 0;
 	wdt_day++;
       }
     }
   }
-  
-  
-  
   
   if ( startup_timer > 0 )
     startup_timer--;
@@ -345,7 +392,6 @@ ISR(WDT_vect)
       is_sensor_sample_timer_alarm = 1;
   }
 
-  volatile uint8_t is_new_history_entry = 0;
   if ( new_history_timer > 0 )
   {
     new_history_timer--;
@@ -371,24 +417,30 @@ void enableWDT()
 
 void reducePower(void)
 {
-  ADCSRA = ADCSRA & B01111111; // ADC abschalten, ADEN bit7 zu 0
+  //ADCSRA = ADCSRA & B01111111; // ADC abschalten, ADEN bit7 zu 0
   ACSR = B10000000; // Analogen Comparator abschalten, ACD bit7 zu 1
-  //DIDR0 = DIDR0 | B00111111; // Digitale Eingangspuffer ausschalten, analoge Eingangs Pins 0-5 auf 1
+  DIDR0 = DIDR0 | B00111111; // Digitale Eingangspuffer ausschalten, analoge Eingangs Pins 0-5 auf 1
 }
 
 
+// argument for attachInterrupt
+// This is called if something happens on the tilt switch
+
 void detectShake(void)
 {
-  is_shake = 1;
+  is_shake = 1;			// used and cleared in is_display_on_event()
   if ( shake_cnt < 255 )
-    shake_cnt++;
+    shake_cnt++;		// used and cleared in ISR(WDT_vect) 
 }
 
 //===================================================
 
 
 void setup(void) {
+  uint8_t i;
   reducePower();
+  analogReference(INTERNAL);		// use the internal 1.1V reference of the ATmega
+  
   Wire.begin();
 
   u8g2.begin();  
@@ -402,22 +454,20 @@ void setup(void) {
   
   u8g2log.print(F("Air Quality\n"));
   
-#ifdef USE_ADAFRUIT_SHT31_LIB
-  if (sht31.begin(0x44)) {   				// 0x45 for alternate i2c addr
-    u8g2log.print(F("SHT31 found at 0x44\n"));
-  } else {
-    u8g2log.print(F("SHT31 not found\n"));
-    while (1);
+  for( i = 0; i < HIST_CNT; i++ )
+  {
+    hist_eco2_max[i] = 0;
+    hist_eco2_min[i] = 0;
   }
-#else // USE_ADAFRUIT_SHT31_LIB
-  if (sht.init()) {
+  
+  
+ if (sht.init()) {
     u8g2log.print(F("SHT31 found at 0x44\n"));
   } else {
     u8g2log.print(F("SHT31 not found\n"));
     while (1);
   }
   sht.setAccuracy(SHTSensor::SHT_ACCURACY_HIGH); 
-#endif // USE_ADAFRUIT_SHT31_LIB
 
 
   if (sgp.begin()) {   				
@@ -435,9 +485,11 @@ void setup(void) {
 
   delay(1000);
   
-  // tilt detection at pin 2 and 3
-  pinMode(2, INPUT_PULLUP);
-  attachInterrupt(digitalPinToInterrupt(2), detectShake, CHANGE);
+  // tilt detection at pin 2
+  //pinMode(2, INPUT_PULLUP);
+  //attachInterrupt(digitalPinToInterrupt(2), detectShake, CHANGE);
+  
+  // tilt detection at pin 3
   pinMode(3, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(3), detectShake, CHANGE);
 
@@ -445,6 +497,53 @@ void setup(void) {
 
   enableWDT();
 }
+
+
+//===================================================
+// read ethanol value from SGP30 
+// bypass Adafruit lib, because this command is not included
+
+
+// not used at the moment
+uint16_t readEthanol(void)
+{
+  uint8_t buf[6];
+  uint8_t i;
+
+  Wire.beginTransmission(0x58);
+  Wire.write(0x20);     // 0x2050: measure signals command
+  Wire.write(0x50);
+  Wire.endTransmission();
+  
+  delay(200);           // max 200ms according to the datasheet
+  
+  if (Wire.requestFrom(0x58, 6) != 6) 
+    return 0;
+  for (i=0; i<6; i++)
+    buf[i] = Wire.read();
+
+  // each data value has: msb, lsb and crc
+  // ethanol value is the second data returned
+  // crc is ignored
+  return (((uint16_t)buf[3])<<8) + (uint16_t)buf[4];
+}
+
+
+//===================================================
+
+void readBatteryVoltageLevel(void)
+{
+  battery_raw = analogRead(0);
+  battery_glyph = 0;
+  if ( battery_raw >= BATTERY_LOW )
+  {
+    battery_glyph = (battery_raw - BATTERY_LOW)/BATTERY_STEP;
+    if ( battery_glyph > 5 )
+      battery_glyph = 5;
+  }
+  battery_glyph += 48;
+}
+
 
 //===================================================
 
@@ -467,74 +566,79 @@ void startAirQuality(void)
 {
 }
 
-uint8_t new_counter = 0; 
-
 void readAirQuality(void)
 {
-  uint8_t i;
-  int32_t tvoc_coeff = 7;	// 1..32
-  int32_t eco2_coeff = 7;	// 1..32
-
-
-#ifdef USE_ADAFRUIT_SHT31_LIB
-  temperature_raw = sht31.readTemperature();
-  humidity_raw = sht31.readHumidity();
-#else // USE_ADAFRUIT_SHT31_LIB
-  sht.readSample();
-  temperature_raw = sht.getTemperature();
-  humidity_raw = sht.getHumidity();
-#endif // USE_ADAFRUIT_SHT31_LIB
 
   
-  if ( temperature_raw <= (float)TEMP_LOW )
+  if ( is_ethanol_read == 0 )
   {
-    temperature = 0;
-  }
-  else if ( temperature_raw >= (float)TEMP_HIGH )
-  {
-    temperature = TEMP_HIGH - TEMP_LOW;
-    temperature *= 2;
+    // normal air quality read
+    sht.readSample();
+    temperature_raw = sht.getTemperature();
+    humidity_raw = sht.getHumidity();
+    
+    if ( temperature_raw <= (float)TEMP_LOW )
+    {
+      temperature = 0;
+    }
+    else if ( temperature_raw >= (float)TEMP_HIGH )
+    {
+      temperature = TEMP_HIGH - TEMP_LOW;
+      temperature *= 2;
+    }
+    else
+    {
+      temperature = (uint8_t)((temperature_raw-(float)TEMP_LOW)*2.0);
+    }
+    
+    humidity = (uint8_t)((humidity_raw)*2.0);
+  
+    sgp.setHumidity(getAbsoluteHumidity(temperature_raw, humidity_raw));
+    
+    is_air_quality_available = sgp.IAQmeasure();
+  
+    if ( is_air_quality_available )
+    {
+      tvoc_raw = sgp.TVOC;
+      eco2_raw = sgp.eCO2;
+    }
+    else
+    {
+      tvoc_raw = 0;
+      eco2_raw = 400;
+    }
+    
+    if ( is_new_history_entry != 0 )
+    {
+      add_hist_new();
+      is_new_history_entry = 0;
+    }
+    else
+    {
+      add_hist_minmax();
+    }
+
+    // ethanol should be read only, if the display is active:
+    /* not used
+    if ( is_display_enabled )
+    {
+      is_ethanol_read = 1;
+    }
+    */
+    
   }
   else
   {
-    temperature = (uint8_t)((temperature_raw-(float)TEMP_LOW)*2.0);
-  }
-  
-  humidity = (uint8_t)((humidity_raw)*2.0);
+    
+    // special ethanol read
+    //ethanol_raw = readEthanol();
 
-  sgp.setHumidity(getAbsoluteHumidity(temperature_raw, humidity_raw));
-  
-  is_air_quality_available = sgp.IAQmeasure();
-
-  if ( is_air_quality_available )
-  {
-    tvoc_raw = sgp.TVOC;
-    eco2_raw = sgp.eCO2;
+    // according to the datasheet, the baseline values are corrupted... so restore them if available
+    //if ( eco2_base != 0 )
+    //  sgp.setIAQBaseline(eco2_base, tvoc_base);   // Restore the baseline values
+    
+    is_ethanol_read = 0;    // next: read normal air quality values
   }
-  else
-  {
-    tvoc_raw = 0;
-    eco2_raw = 400;
-  }
-  
-  if ( is_new_history_entry != 0 )
-  {
-    add_hist_new();
-    is_new_history_entry = 0;
-  }
-  else
-  {
-    add_hist_minmax();
-  }
-  
-  /*
-  if ( (new_counter & 3) == 0 )
-    add_hist_new();
-  else
-    add_hist_minmax();
-  new_counter++;
-  */
-  
 }
 
 
@@ -604,7 +708,11 @@ void draw_graph( uint16_t (*get_val)(void *ptr, uint8_t pos), void *min_array, v
       max = get_val(max_array, ii);
   }
   if ( min > max )
+  {
+    min = 0;
+    max = 600;
     return;
+  }
   if ( min + 30 >= max )
     max = min + 30;
     
@@ -631,7 +739,10 @@ void draw_graph( uint16_t (*get_val)(void *ptr, uint8_t pos), void *min_array, v
 
   i = hist_start;
   x = 127-HIST_CNT;
-  
+
+  u8g2.setFont(FONT_NARROW);
+  u8g2.setDrawColor(1);
+
   for(;;)
   {
     ii = i;
@@ -653,86 +764,8 @@ void draw_graph( uint16_t (*get_val)(void *ptr, uint8_t pos), void *min_array, v
 
 //===================================================
 
-void draw_page1(void)
-{
-  u8g2.firstPage();
-  do {
-    u8g2.setFont(u8g2_font_helvB08_tf);
-    u8g2.setCursor(0, 10);
-    //u8g2.print(temperature_raw);
-    draw_temperature(temperature);
-    //u8g2.setCursor(33, 10);
-    u8g2.print(F(" °C"));
-    u8g2.setCursor(64, 10);
-    draw_humidity(humidity);
-    //u8g2.setCursor(98, 10);
-    u8g2.print(F(" %RH"));
-
-    //u8g2.setCursor(0, 20);
-    //u8g2.print(eco2_base, HEX);
-    //u8g2.print(" ");
-    //u8g2.print(tvoc_base, HEX);
-
-
-    if ( is_air_quality_available )
-    {
-      u8g2.setCursor(0, 30);
-      u8g2.print(tvoc_raw);
-      u8g2.print(" / ");
-      u8g2.print(eco2_raw);
-    }
-      
-    draw_graph( get_uint16, hist_eco2_min, hist_eco2_max, draw_16bit);
-      
-  } while ( u8g2.nextPage() );
-}
-
-//===================================================
-
-void draw_eco2(void)
-{
-  u8g2.setFontMode(1);
-  u8g2.firstPage();
-  do {
-    u8g2.setFont(FONT_SMALL);
-    u8g2.setCursor(0, 10);
-    //u8g2.print(temperature_raw);
-    draw_temperature(temperature);
-    //u8g2.setCursor(33, 10);
-    u8g2.print(F(" °C"));
-    u8g2.setCursor(64, 10);
-    draw_humidity(humidity);
-    //u8g2.setCursor(98, 10);
-    u8g2.print(F(" %RH"));
-
-    //u8g2.setCursor(0, 20);
-    //u8g2.print(eco2_base, HEX);
-    //u8g2.print(" ");
-    //u8g2.print(tvoc_base, HEX);
-
-    if ( is_air_quality_available )
-    {
-      u8g2.setFont(FONT_BIG);
-      u8g2.setCursor(20, 63);
-      u8g2.print(eco2_raw);
-      
-      u8g2.setFont(FONT_SMALL);
-      u8g2.setCursor(0, 25);
-      u8g2.print(F("CO"));
-      u8g2.setCursor(17, 30);
-      u8g2.print(F("²"));
-      
-      //u8g2.print(tvoc_raw);
-    }
-      
-  } while ( u8g2.nextPage() );
-}
-
-//===================================================
-
 void draw_1_2_eco2_history(u8g2_uint_t x, u8g2_uint_t y)
 {
-    u8g2.setFont(FONT_NARROW);
   
     draw_graph( get_uint16, hist_eco2_min, hist_eco2_max, draw_16bit);
 }
@@ -863,43 +896,25 @@ void draw_1_4_system(u8g2_uint_t x, u8g2_uint_t y)
 {
   u8g2.setFont(FONT_SMALL);
   u8g2.setCursor(x, y+11);
-  u8g2.print(F("Shake "));
-  u8g2.print(shake_last_cnt);
+  u8g2.print(F("ETH "));
+  u8g2.print(ethanol_raw, HEX);
 
   u8g2.setCursor(x, y+21);
-  u8g2.print(F("Cool "));
-  u8g2.print(new_display_cool_down_timer);
+  u8g2.print(F("St "));
+  u8g2.print(state);
+  u8g2.print(F(" Sh "));
+  u8g2.print(shake_last_cnt);
 
   u8g2.setCursor(x, y+31);
-  u8g2.print(F("State "));
-  u8g2.print(state);
+  u8g2.print(F("Bat "));
+  u8g2.print(battery_raw);
 
 }
 
 void draw_1_4_battery(u8g2_uint_t x, u8g2_uint_t y)
 {
   u8g2.setFont(u8g2_font_battery19_tn);
-
-
-/*
-  if ( state == STATE_WARMUP_DISP_ON )
-  {
-    uint16_t l = sensor_warmup_timer;
-    l *= 9;
-    l /= SENSOR_WARMUP_TIME;
-    
-    u8g2.drawGlyph(x, y+25, 50);
-    
-    u8g2.setFont(FONT_SMALL);
-    u8g2.drawGlyph(x, y+5, '0' + l);
-  }
-  else
-*/
-  {
-    u8g2.drawGlyph(x, y+20, 50);
-  }
-
-  
+  u8g2.drawGlyph(x, y+20, battery_glyph);  
 }
 
 void draw_1_4_emoticon(u8g2_uint_t x, u8g2_uint_t y)
@@ -1048,6 +1063,8 @@ void draw_with_history(void)
     }
     
     draw_1_2_eco2_history(0, 32);
+    
+    
       
   } while ( u8g2.nextPage() );
 }
@@ -1057,12 +1074,17 @@ void draw_with_history(void)
 
 uint8_t is_display_on_event(void)
 {
+  if ( is_shake > 0 )
+  {
+    is_shake = 0;
+    return 1;
+  }
   if ( shake_last_cnt >= 1 )
     return 1;
   return 0;
 }
 
-void handle_new_display(void)
+void handle_new_display_page(void)
 {
   if ( new_display_cool_down_timer > 0 )
   {
@@ -1073,9 +1095,9 @@ void handle_new_display(void)
     if ( shake_last_cnt > NEW_DISPLAY_SHAKE_THRESHOLD )
     {
       new_display_cool_down_timer = NEW_DISPLAY_COOL_DOWN;
-      current_display++;
-      if ( current_display >= DISPLAY_CNT )
-	current_display = 0;
+      current_display_page++;
+      if ( current_display_page >= DISPLAY_PAGE_CNT )
+	current_display_page = 0;
     }
   }
 }
@@ -1162,6 +1184,7 @@ void next_state(void)
       {
 	enable_display();
 	display_timer = DISPLAY_TIME;
+	new_display_cool_down_timer = NEW_DISPLAY_COOL_DOWN;		// ensure, that the display page is visible for a while
 	state = STATE_STARTUP_DISP_ON;
       }
       else if ( startup_timer == 0 )
@@ -1202,6 +1225,7 @@ void next_state(void)
       {
 	enable_display();
 	display_timer = DISPLAY_TIME;
+	new_display_cool_down_timer = NEW_DISPLAY_COOL_DOWN;		// ensure, that the display page is visible for a while
 	state = STATE_WARMUP_DISP_ON;
       }
       else if ( sensor_warmup_timer == 0 )
@@ -1251,6 +1275,7 @@ void next_state(void)
       {
 	enable_display();
 	display_timer = DISPLAY_TIME;
+	new_display_cool_down_timer = NEW_DISPLAY_COOL_DOWN;		// ensure, that the display page is visible for a while
 	state = STATE_MEASURE_DISP_ON;
       }
       else if ( sensor_measure_timer == 0 )
@@ -1267,6 +1292,7 @@ void next_state(void)
       {
 	enable_display();
 	display_timer = DISPLAY_TIME;
+	new_display_cool_down_timer = NEW_DISPLAY_COOL_DOWN;		// ensure, that the display page is visible for a while
 	
 	enable_sensors();
 	
@@ -1306,16 +1332,17 @@ void loop(void) {
     is_wdt_irq = 0;
 
     next_state();
-    handle_new_display();
+    readBatteryVoltageLevel();
+    handle_new_display_page();
 
     if ( is_display_enabled )		// "is_display_enabled" will be calculated in next_state()
     {
       start = millis();
-      if ( current_display == 0 )
+      if ( current_display_page == 0 )
 	draw_with_emo();
-      else if ( current_display == 1 )
+      else if ( current_display_page == 1 )
 	draw_with_history();
-      else if ( current_display == 2 )
+      else if ( current_display_page == 2 )
 	draw_system();      
       millis_display = millis() - start;
     }

@@ -65,7 +65,7 @@ size_t U8X8::write(uint8_t v)
 
 
 /*=============================================*/
-/* callbacks */
+/*=== ARDUINO GPIO & DELAY ===*/
 
 #ifdef U8X8_USE_PINS
 extern "C" uint8_t u8x8_gpio_and_delay_arduino(u8x8_t *u8x8, uint8_t msg, uint8_t arg_int, U8X8_UNUSED void *arg_ptr)
@@ -168,6 +168,7 @@ extern "C" uint8_t u8x8_gpio_and_delay_arduino(u8x8_t *u8x8, uint8_t msg, uint8_
 
 
 /*=============================================*/
+/*=== 3 WIRE SOFTWARE SPI ===*/
 
 /*
   replacement for a more faster u8x8_byte_3wire_sw_spi
@@ -351,6 +352,7 @@ extern "C" uint8_t u8x8_byte_arduino_3wire_sw_spi(u8x8_t *u8x8, uint8_t msg, uin
 
 
 /*=============================================*/
+/*=== 4 WIRE SOFTWARE SPI ===*/
 
 /*
   replacement for a more faster u8x8_byte_4wire_sw_spi
@@ -682,6 +684,7 @@ extern "C" uint8_t u8x8_byte_arduino_4wire_sw_spi(u8x8_t *u8x8, uint8_t msg, uin
 
 
 /*=============================================*/
+/*=== 4 WIRE HARDWARE SPI ===*/
 
 #ifdef U8X8_USE_PINS
 
@@ -710,7 +713,8 @@ extern "C" uint8_t u8x8_byte_arduino_hw_spi(u8x8_t *u8x8, uint8_t msg, uint8_t a
   
       break;
     case U8X8_MSG_BYTE_INIT:
-      u8x8->bus_clock = u8x8->display_info->sck_clock_hz;
+      if ( u8x8->bus_clock == 0 ) 	/* issue 769 */
+	u8x8->bus_clock = u8x8->display_info->sck_clock_hz;
       /* disable chipselect */
       u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
       
@@ -829,7 +833,8 @@ extern "C" uint8_t u8x8_byte_arduino_2nd_hw_spi(U8X8_UNUSED u8x8_t *u8x8, U8X8_U
   
       break;
     case U8X8_MSG_BYTE_INIT:
-      u8x8->bus_clock = u8x8->display_info->sck_clock_hz;
+      if ( u8x8->bus_clock == 0 ) 	/* issue 769 */
+	u8x8->bus_clock = u8x8->display_info->sck_clock_hz;
       /* disable chipselect */
       u8x8_gpio_SetCS(u8x8, u8x8->display_info->chip_disable_level);
       /* no wait required here */
@@ -1121,6 +1126,7 @@ extern "C" uint8_t u8x8_byte_arduino_sw_i2c(U8X8_UNUSED u8x8_t *u8x8, U8X8_UNUSE
 #endif
 
 /*=============================================*/
+/*=== HARDWARE I2C ===*/
 
 extern "C" uint8_t u8x8_byte_arduino_hw_i2c(U8X8_UNUSED u8x8_t *u8x8, U8X8_UNUSED uint8_t msg, U8X8_UNUSED uint8_t arg_int, U8X8_UNUSED void *arg_ptr)
 {
@@ -1131,7 +1137,8 @@ extern "C" uint8_t u8x8_byte_arduino_hw_i2c(U8X8_UNUSED u8x8_t *u8x8, U8X8_UNUSE
       Wire.write((uint8_t *)arg_ptr, (int)arg_int);
       break;
     case U8X8_MSG_BYTE_INIT:
-      u8x8->bus_clock = u8x8->display_info->i2c_bus_clock_100kHz * 100000UL;
+      if ( u8x8->bus_clock == 0 ) 	/* issue 769 */
+	u8x8->bus_clock = u8x8->display_info->i2c_bus_clock_100kHz * 100000UL;
 #if defined(ESP8266) || defined(ARDUINO_ARCH_ESP8266) || defined(ESP_PLATFORM) || defined(ARDUINO_ARCH_ESP32)
       /* for ESP8266/ESP32, Wire.begin has two more arguments: clock and data */          
       if ( u8x8->pins[U8X8_PIN_I2C_CLOCK] != U8X8_PIN_NONE && u8x8->pins[U8X8_PIN_I2C_DATA] != U8X8_PIN_NONE )
@@ -1176,7 +1183,8 @@ extern "C" uint8_t u8x8_byte_arduino_2nd_hw_i2c(U8X8_UNUSED u8x8_t *u8x8, U8X8_U
       Wire1.write((uint8_t *)arg_ptr, (int)arg_int);
       break;
     case U8X8_MSG_BYTE_INIT:
-      u8x8->bus_clock = u8x8->display_info->i2c_bus_clock_100kHz * 100000UL;
+      if ( u8x8->bus_clock == 0 ) 	/* issue 769 */
+	u8x8->bus_clock = u8x8->display_info->i2c_bus_clock_100kHz * 100000UL;
       Wire1.begin();
       break;
     case U8X8_MSG_BYTE_SET_DC:
