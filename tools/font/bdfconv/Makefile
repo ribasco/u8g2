@@ -112,13 +112,26 @@ old16x16: bdfconv
 
 
 
+analecta: bdfconv
+	-../otf2bdf/otf2bdf -a  -p 20 -o analecta.bdf Analecta.otf
+	./bdfconv -v -f 1 -m '32-65535' analecta.bdf -o u8g2_font_analecta.c  -n u8g2_font_analecta -d ../bdf/helvB18.bdf 
+
 logisoso: bdfconv
 	-../otf2bdf/otf2bdf -a -r 72 -p 131 -o tmp.bdf ../ttf/Logisoso.ttf
 	./bdfconv -v -f 1 -m '32,42-57' tmp.bdf -o u8g2_font_logisoso_tn.c  -n u8g2_font_logisoso_tn -d ../bdf/helvB18.bdf 
 
+tpss: bdfconv
+	-../otf2bdf/otf2bdf -r 72 -p 8 -o tmp.bdf ../ttf/TEACPSS_.TTF
+	./bdfconv -v -f 1 -m '32-255' tmp.bdf -o u8g2_font_tpss_tf.c  -n u8g2_font_tpss_tn -d ../bdf/helvR10.bdf 
+
+
+q_pixia: bdfconv
+	-../otf2bdf/otf2bdf -a -r 72 -p 13 -o tmp.bdf q_pixia.ttf
+	./bdfconv -v -f 1 -m '32-65534' tmp.bdf -o u8g2_font_q_pixia.c  -n u8g2_font_q_pixia -d ../bdf/helvB18.bdf 
+
 inr: bdfconv
 	-../otf2bdf/otf2bdf -a -r 72 -p 33 -o tmp.bdf ../ttf/inr.otf
-	./bdfconv -v -b 2 -f 1 -m '32,42-57' tmp.bdf -o u8g2_font_inr_m.c  -n u8g2_font_inr_m -d ../bdf/helvB18.bdf 
+	./bdfconv -v -b 2 -f 1 -m '32-128,$$400-$$52f' tmp.bdf -o u8g2_font_inr_m.c  -n u8g2_font_inr_m -d ../bdf/helvB18.bdf 
 
 logisoso92x: bdfconv
 	-../otf2bdf/otf2bdf -a -r 72 -p 131 -o tmp.bdf ../ttf/Logisoso.ttf
@@ -131,6 +144,29 @@ fub: bdfconv
 fub20x: bdfconv
 	-../otf2bdf/otf2bdf -a -r 72 -p 27 -o tmp.bdf ../ttf/FreeUniversal-Bold.ttf
 	./bdfconv -v -f 1 -m '32-127,8364' tmp.bdf -o u8g2_font_fub20_tx.c  -n u8g2_font_fub20_tx -d ../bdf/helvB18.bdf 
+
+unifont_emoticon: bdfconv
+	./bdfconv -v -f 1 -m '$$01f600-$$01f64f>$$20, $$01f910-$$01f92f>$$70, $$01f970-$$01f971>$$90, $$01f973-$$01f976>$$92,$$01f97a>$$96, $$01f9b8-$$01f9b9>$$97, $$01f9d0-$$01f9d6>$$99' ../bdf/unifont_upper.bdf -o u8g2_font_unifont_emoticon.c  -n u8g2_font_unifont_emoticon_tx -d ../bdf/helvB18.bdf 
+
+unifont_misc_sym_and_pic: bdfconv
+	./bdfconv -v -f 1 -m '$$01f300-$$01f5ff>$$f300' ../bdf/unifont_upper.bdf -o u8g2_font_unifont_misc_sym_and_pic.c  -n u8g2_font_unifont_misc_sym_and_pic_tx -d ../bdf/helvB18.bdf 
+
+unifont_animals: bdfconv
+	./bdfconv -v -f 1 -m '$$01f400-$$01f43f>$$20,$$01f980-$$01f9af>$$60' ../bdf/unifont_upper.bdf -o u8g2_font_unifont_animal.c  -n u8g2_font_unifont_animal_tx -d ../bdf/helvB18.bdf 
+
+unifont_domino: bdfconv
+	./bdfconv -v -f 1 -m '$$01f030-$$01f093>$$20' ../bdf/unifont_upper.bdf -o u8g2_font_unifont_domino.c  -n u8g2_font_unifont_domino_tx -d ../bdf/helvB18.bdf 
+
+unifont_cards: bdfconv
+	./bdfconv -v -f 1 -m '$$01f0a0-$$01f0f5>$$20' ../bdf/unifont_upper.bdf -o u8g2_font_unifont_cards.c  -n u8g2_font_unifont_cards_tx -d ../bdf/helvB18.bdf 
+
+unifont_weather: bdfconv
+	./bdfconv -v -f 1 -m '$$01f310-$$01f32c>$$20' ../bdf/unifont_upper.bdf -o u8g2_font_unifont_weather.c  -n u8g2_font_unifont_weather_tx -d ../bdf/helvB18.bdf 
+
+
+climacons: bdfconv
+	-../otf2bdf/otf2bdf -a -r 72 -p 32 -o tmp.bdf Climacons.ttf
+	./bdfconv -v -f 1 -m '32-256' tmp.bdf -o u8g2_font_climacons.c  -n u8g2_font_climacons -d ../bdf/helvB18.bdf 
 
 logisoso20x: bdfconv
 	-../otf2bdf/otf2bdf -a -r 72 -p 30 -o tmp.bdf ../ttf/Logisoso.ttf
@@ -168,6 +204,9 @@ bengali: bdfconv
 urdu: bdfconv
 	./bdfconv -v -f 1 -m '32-128,$$600-$$6ff,$$750-$$77f,$$fb50-$$fdff,$$fe70-$$feff' ../bdf/unifont.bdf -o u8g2_urdu.c  -n u8g2_urdu -d ../bdf/helvB12.bdf 
 
+malayalam: bdfconv
+	./bdfconv -v -f 1 -m '32-128,$$d00-$$d7f' ../bdf/unifont.bdf -o u8g2_malayalam.c  -n u8g2_font_malayalam -d ../bdf/helvB12.bdf 
+
 lubr24: bdfconv
 	./bdfconv -f 1 -m '32-255' -p 10 lubR24.bdf -o lubR24.c -n u8g2_font_lubR24 -d ../bdf/helvB12.bdf 
 
@@ -191,6 +230,10 @@ wqy: bdfconv
 
 ncenR24: bdfconv
 	./bdfconv  -v -f 1 -b 0 -m '32-701>32,7838' ../bdf/ncenR24.bdf -n u8g2_font_ncenR24_te -o test.c 
+
+profont12v2: bdfconv
+	#./bdfconv  -v -f 1 -b 0 -m '32-701>32,7838' ../bdf/profont12v2.bdf -n u8g2_font_profont12v2_te -o test.c 
+	./bdfconv  -v -f 1 -b 0 -m '32-127' ../bdf/profont12v2.bdf -n u8g2_font_profont12v2_tr -o test.c 
 
 	
 #	http://stackoverflow.com/questions/713397/what-is-a-minimal-set-of-unicode-characters-for-reasonable-japanese-support
@@ -281,3 +324,18 @@ chinese: bdfconv
 	convert bdf.tga -trim u8g2_font_gb24st_t_2.png
 	./bdfconv ../bdf/gb24st.bdf -b 0 -f 1 -M ../build/chinese3.map -d ../bdf/7x13.bdf -n u8g2_font_gb24st_t_3
 	convert bdf.tga -trim u8g2_font_gb24st_t_3.png
+
+malayalam: bdfconv
+	-../otf2bdf/otf2bdf -a -r 72 -p 16 -o malayalam.bdf malayalam.ttf
+	./bdfconv -v -f 1 -m '$$21-$$7e,$$d02-$$d6f,$$ece3-$$ed59' malayalam.bdf -o u8g2_font_malayalam_tn.c  -n u8g2_font_malayalam_tn -d ../bdf/helvB18.bdf 
+	convert bdf.tga malayalam.png
+
+gayathri: bdfconv
+	-../otf2bdf/otf2bdf -a -r 72 -p 24 -o gayathri.bdf Gayatri.ttf
+	./bdfconv -v -f 1 -m '$$21-$$1fd,$$d00-$$d7f,$$200c-$$20b9,$$10003-$$102bc>$$e003' gayathri.bdf -o u8g2_font_gayathri_tn.c  -n u8g2_font_gayathri_tn -d ../bdf/helvB18.bdf 
+	convert bdf.tga gayathri.png
+
+meera: bdfconv
+	-../otf2bdf/otf2bdf -a -r 72 -p 24 -o meera.bdf Meera.ttf
+	./bdfconv -v -f 1 -m '$$21-$$2dc,$$d02-$$d6f,$$200c-$$2215,$$10003-$$1043f>$$e003' meera.bdf -o u8g2_font_meera_tn.c  -n u8g2_font_meera_tn -d ../bdf/helvB18.bdf 
+	convert bdf.tga meera.png

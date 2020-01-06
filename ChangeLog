@@ -205,7 +205,7 @@ https://github.com/olikraus/u8g2 ChangeLog
   * Added setBusClock() proc to change the I2C/SPI bus clock speed (Arduino only, issue 705)
   * Added sleep mode for ST7920 (issue 245)
   * Added support for SSD0323 (issue 720)
-2019-xx-xx	v2.25.x  olikraus@gmail.com
+2019-02-09	v2.25.10  olikraus@gmail.com
   * Improved speed for I2C with SSD1306 controller: 4% faster now (issue 735)
   * Fixed code problems (issues 766 and 754)  
   * Added battery symbols and emoticons (issue 747)
@@ -213,4 +213,29 @@ https://github.com/olikraus/u8g2 ChangeLog
   * Added alternative version for ERC12864 (issue 790)
   * Added Waveshare SSD1607 200x200 support (issue 637)
   * Added support for SSD1318 (issue 784)
-  
+  * Partial display update with updateDisplayArea (issue 736)
+  * Several new decorative and fancy fonts from pentacom.jp (issue 801)
+2019-06-30	v2.26.14  olikraus@gmail.com
+  * Support for Pimoroni 128x128 OLED SH1107 (issue 803)
+  * Support for Grove 128x128 OLED SH1107 (issue 877)
+  * Support for Winstar 256x128 ST75256 (ST75256_WO256X128, issue 891)
+  * Bugfix: Open Iconic 1x for U8x8 (issue 828)
+  * Added sendF command for direct communication with the display (issues 822, 878, 896)
+  * Support for CG160160 UC1611 (issue 884)
+  * Support for LM6063 128x64 ST7565  (issue 893)
+  * Added fonts from pentacom (issue 810)
+  * Support for ST7511 (issue 876)
+  * Support for SSD1316 132x32 (issue 919)
+  * Support for ST75320 (issue 921)
+  * Added JLX256160M for mirrored version of the JLX256160 display (issue 930)
+  * Unifont update to 12.1.02, added several plane 1 fonts (issue 931)
+  * bdfconv.exe: Windows exe created, bugfix with -d option (issue 833)
+2019-xx-xx	v2.27.x	olikraus@gmail.com
+  * Support for IST7920 (issue 999). Note: IST7920 has nothing todo with ST7920
+  * Added screenshot/screencapture for full buffer mode (issue 1005)
+      See: https://github.com/olikraus/u8g2/wiki/u8g2reference#writebufferpbm
+  * Bugfix for draw 1x2 and 2x2 procedures for big 8x8 fonts (issue 1054)
+  * Added fast software SPI support for Arduino Nano Every (issue 987)
+  * Added "LoadFromSD" example to demonstrate reading XBM binary from SD card (issue #1059)
+  * Added png to XBM binary conversion tool (https://github.com/olikraus/u8g2/tree/master/tools/png2bin)
+  * Support for SSD1306 72x40 (issue 1047)
