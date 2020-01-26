@@ -192,6 +192,8 @@ struct groupinfo gi[] = {
   { "bitfontmaker2", "fntgrpbitfontmaker2", "../../../../u8g2.wiki/fntgrpbitfontmaker2.md", 		"fntgrpbitfontmaker2.pre" }, 		/* 34 */ 
   { "JapanYoshi", "fntgrpjapanyoshi", "../../../../u8g2.wiki/fntgrpjapanyoshi.md", 		"fntgrpjapanyoshi.pre" }, 		/* 35 */ 
   { "Pentacom", "fntgrppentacom", "../../../../u8g2.wiki/fntgrppentacom.md", 		"fntgrppentacom.pre" }, 		/* 36 */ 
+  { "dafont", "fntgrpdafont", "../../../../u8g2.wiki/fntgrpdafont.md", 		"fntgrpdafont.pre" }, 		/* 37 */ 
+  { "lucida", "fntgrplucida", "../../../../u8g2.wiki/fntgrplucida.md", 		"fntgrplucida.pre" }, 		/* 38 */ 
 
   
   
@@ -226,7 +228,7 @@ Greek Extended	1F00–1FFF
 struct fontinfo fi[] ={
 	
   { 0,  0, "u8glib_4.bdf", 		"u8glib_4", 		0, 0, BM_T|BM_H, FM_C, MM_F|MM_R, "", "" },
-  
+
   
   { 0,  0, "m2icon_5.bdf", 		"m2icon_5", 		0, 0, BM_T, FM_C, MM_F, "", ""},
   { 0,  0, "m2icon_7.bdf", 		"m2icon_7", 		0, 0, BM_T, FM_C, MM_F, "", ""},
@@ -603,6 +605,7 @@ Greek Extended	1F00–1FFF
   { 0,  "-r 72 -p 16", "ImpactBits.ttf",			"ImpactBits",	35, 0, BM_T, FM_C, MM_R, "", "" },
   { 0,  "-r 72 -p 16", "IPAandRUSLCD.ttf",			"IPAandRUSLCD",	35, 0, BM_T, FM_C, MM_R|MM_F|MM_E, "", "" },
 
+
   /* Pentacom, 36*/
   { 0,  "-r 72 -p 16", "HelvetiPixel.ttf",			"HelvetiPixel",			36, 0, BM_T, FM_C, MM_R, "", "" },
   { 0,  "-r 72 -p 16", "TimesNewPixel.ttf",			"TimesNewPixel",		36, 0, BM_T, FM_C, MM_R, "", "" },
@@ -611,6 +614,19 @@ Greek Extended	1F00–1FFF
   { 0,  "-r 72 -p 16", "Wizzard.ttf",				"Wizzard",			36, 0, BM_T, FM_C, MM_R, "", "" },
   { 0,  "-r 72 -p 16", "HelvetiPixelOutline.ttf",		"HelvetiPixelOutline",	36, 0, BM_T, FM_C, MM_R|MM_E, "", "" },
   { 0,  "-r 72 -p 16", "Untitled16PixelSansSerifBitmapTestFont.ttf",	"Untitled16PixelSansSerifBitmap",	36, 0, BM_T, FM_C, MM_R, "", "" },
+
+//#endif   /* TMP */
+
+  /* dafont, 37*/
+  { 0,  "-r 72 -p 8", "nokiafc22.ttf",			"nokiafc22",		37, 0, BM_T, FM_C, MM_N|MM_U|MM_R|MM_F, "", "" },
+  { 0,  "-a -r 72 -p 20", "VCR_OSD_MONO_1.001.ttf",	"VCR_OSD",		37, 0, BM_T|BM_M, FM_C, MM_N|MM_U|MM_R|MM_F, "", "" },
+  { 0,  "-r 72 -p 16", "Pixellari.ttf",				"Pixellari",		37, 0, BM_T, FM_C, MM_N|MM_U|MM_R|MM_F|MM_E, "", "" },
+  { 0,  "-r 72 -p 10", "pixelpoiiz.ttf",				"pixelpoiiz",		37, 0, BM_T, FM_C, MM_R, "", "" },
+  { 0,  "-r 72 -p 16", "DigitalDisco-Thin.ttf",		"DigitalDiscoThin",	37, 0, BM_T, FM_C, MM_N|MM_U|MM_R|MM_F|MM_E, "", "" },
+  { 0,  "-r 72 -p 16", "DigitalDisco.ttf",			"DigitalDisco",		37, 0, BM_T, FM_C, MM_N|MM_U|MM_R|MM_F|MM_E, "", "" },
+  { 0,  "-r 72 -p 16", "pearfont.ttf",				"pearfont",		37, 0, BM_T, FM_C, MM_R, "", "" },
+
+//#ifdef TMP  
   
   /* thai fonts are not unicode encoded, so map the thai chars to their correct unicode position 128-255>3552 */
   { 0,  0, "etl14-thai.bdf", 		"etl14thai", 		17, 0, BM_T, FM_C, MM_C, "32-127,128-255>3552", "" },
@@ -770,7 +786,6 @@ Greek Extended	1F00–1FFF
   { 0,  0, "wenquanyi_12pt.bdf", 	"wqy16", 		21, 0, BM_T, FM_C, MM_M, "gb2312a.map", "_gb2312a" },
   { 0,  0, "wenquanyi_12pt.bdf", 	"wqy16", 		21, 0, BM_T, FM_C, MM_M, "gb2312b.map", "_gb2312b" },
 
-//#endif   /* TMP */
   { 0,  0, "b10.bdf", 			"b10", 		16, 0, BM_T, FM_C, MM_M, "japanese1.map", "_japanese1" },
   { 0,  0, "b10.bdf", 			"b10", 		16, 0, BM_T, FM_C, MM_M, "japanese2.map", "_japanese2" },
 //#ifdef TMP
@@ -884,6 +899,68 @@ Greek Extended	1F00–1FFF
   { 0,  0, "timR14.bdf", 		"timR14", 		5, 0, BM_T, FM_C, MM_F|MM_R|MM_N, "", "" },
   { 0,  0, "timR18.bdf", 		"timR18", 		5, 0, BM_T, FM_C, MM_F|MM_R|MM_N, "", "" },
   { 0,  0, "timR24.bdf", 		"timR24", 		5, 0, BM_T, FM_C, MM_F|MM_R|MM_N, "", "" },
+  
+  
+
+  { 0,  0, "lubB08.bdf", 		"lubB08", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" }, 
+  { 0,  0, "lubB10.bdf", 		"lubB10", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubB12.bdf", 		"lubB12", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubB14.bdf", 		"lubB14", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubB18.bdf", 		"lubB18", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubB19.bdf", 		"lubB19", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubB24.bdf", 		"lubB24", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubBI08.bdf", 		"lubBI08", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubBI10.bdf", 		"lubBI10", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubBI12.bdf", 		"lubBI12", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubBI14.bdf", 		"lubBI14", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubBI18.bdf", 		"lubBI18", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubBI19.bdf", 		"lubBI19", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubBI24.bdf", 		"lubBI24", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubI08.bdf", 		"lubI08", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubI10.bdf", 		"lubI10", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubI12.bdf", 		"lubI12", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubI14.bdf", 		"lubI14", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubI18.bdf", 		"lubI18", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubI19.bdf", 		"lubI19", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubI24.bdf", 		"lubI24", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBIS08.bdf", 		"luBIS08", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBIS10.bdf", 		"luBIS10", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBIS12.bdf", 		"luBIS12", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBIS14.bdf", 		"luBIS14", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBIS18.bdf", 		"luBIS18", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBIS19.bdf", 		"luBIS19", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBIS24.bdf", 		"luBIS24", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubR08.bdf", 		"lubR08", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubR10.bdf", 		"lubR10", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubR12.bdf", 		"lubR12", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubR14.bdf", 		"lubR14", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubR18.bdf", 		"lubR18", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubR19.bdf", 		"lubR19", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "lubR24.bdf", 		"lubR24", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBS08.bdf", 		"luBS08", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBS10.bdf", 		"luBS10", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBS12.bdf", 		"luBS12", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBS14.bdf", 		"luBS14", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBS18.bdf", 		"luBS18", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBS19.bdf", 		"luBS19", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luBS24.bdf", 		"luBS24", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luIS08.bdf", 		"luIS08", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luIS10.bdf", 		"luIS10", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luIS12.bdf", 		"luIS12", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luIS14.bdf", 		"luIS14", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luIS18.bdf", 		"luIS18", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luIS19.bdf", 		"luIS19", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luIS24.bdf", 		"luIS24", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luRS08.bdf", 		"luRS08", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luRS10.bdf", 		"luRS10", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luRS12.bdf", 		"luRS12", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luRS14.bdf", 		"luRS14", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luRS18.bdf", 		"luRS18", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luRS19.bdf", 		"luRS19", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  { 0,  0, "luRS24.bdf", 		"luRS24", 		38, 0, BM_T, FM_C, MM_F|MM_R|MM_N|MM_E, "", "" },
+  
+
+  
   
   /* Adobe symb skipped... */
 
