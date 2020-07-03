@@ -766,6 +766,7 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "erc24064" },
+      { "dem240064" },
       { NULL }
     }
   },  
@@ -774,6 +775,7 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "erc24064" },
+      { "dem240064" },
       { NULL }
     }
   },  
@@ -940,7 +942,6 @@ struct controller controller_list[] =
   
 
   
-#ifdef NOTUSED
   {
     "uc1617", 	16, 	16, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_3WSPI,
     "", /* is_generate_u8g2_class= */ 1,
@@ -957,7 +958,6 @@ struct controller controller_list[] =
       { NULL }
     }
   },  
-#endif
   
   {
     "st7565", 		16, 	8, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_3WSPI|COM_6800|COM_8080,
@@ -1036,6 +1036,7 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "64x32" },
+      { "hem6432" },
       { NULL }
     }
   },
@@ -1044,6 +1045,7 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "64x32" },
+      { "hem6432" },
       { NULL }
     }
   },
@@ -1436,6 +1438,16 @@ struct controller controller_list[] =
       { NULL }
     }
   },
+#ifdef NOT_POSSIBLE
+  {
+    "max7219", 	2, 	2, 	"u8g2_ll_hvline_horizontal_right_lsb", "u8x8_cad_empty", "", COM_4WSPI,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "16x16" },
+      { NULL }
+    }
+  },
+#endif
   {
     "max7219", 	1, 	1, 	"u8g2_ll_hvline_horizontal_right_lsb", "u8x8_cad_empty", "", COM_4WSPI,
     "", /* is_generate_u8g2_class= */ 1,
@@ -1517,9 +1529,9 @@ struct interface interface_list[] =
   /* 5 */
   {
     "3W_HW_SPI",
-    "",
-    "",
-    "",   
+    "u8x8_SetPin_3Wire_HW_SPI",
+    "u8x8_byte_arduino_3wire_hw_spi",
+    "u8x8_gpio_and_delay_arduino",   
     "uint8_t cs, uint8_t reset = U8X8_PIN_NONE",
     "cs, reset",
     "cs [, reset]",
@@ -1952,7 +1964,7 @@ void do_display(int controller_idx, int display_idx, const char *postfix)
   if ( controller_list[controller_idx].com & COM_3WSPI )
   {
     do_display_interface(controller_idx, display_idx, postfix, 4);		/* 3wire SW SPI */
-    //do_display_interface(controller_idx, display_idx, postfix, 5);		/* 3wire HW SPI (not implemented) */
+    do_display_interface(controller_idx, display_idx, postfix, 5);		/* 3wire HW SPI (not implemented) */
   }
   if ( controller_list[controller_idx].com & COM_6800 )
   {
@@ -2236,7 +2248,7 @@ void do_md_controller_list(void)
       if ( controller_list[controller_idx].com & COM_3WSPI )
       {
 	do_md_display_interface(controller_idx, display_idx, 4);		/* 3wire SW SPI */
-	//do_md_display_interface(controller_idx, display_idx, 5);		/* 3wire HW SPI (not implemented) */
+	do_md_display_interface(controller_idx, display_idx, 5);		/* 3wire HW SPI (not implemented) */
       }
       if ( controller_list[controller_idx].com & COM_6800 )
       {

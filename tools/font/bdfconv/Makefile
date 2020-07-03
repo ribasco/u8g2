@@ -37,8 +37,23 @@ helvb18: bdfconv
 helvb18n: bdfconv
 	./bdfconv -v -f 1 -m '32,48-57' ../bdf/helvB18.bdf -o helvb18_tn.c  -n u8g2_font_helvB18_tn -d ../bdf/helvB18.bdf 
 
+dseg7: bdfconv
+	./bdfconv -v -f 1 -m '32-65000' dseg7_classic_regular.bdf -o u8g2_font_dseg7_classic_regular_all.c  -n u8g2_font_dseg7_classic_regular_all -d ../bdf/helvR12.bdf 
+	convert bdf.tga -trim u8g2_font_dseg7_classic_regular_all.png
+
+dseg7cr: bdfconv
+	./bdfconv -v -f 1 -b 2 -m '48-57,65-90,97-122' dseg7_classic_regular.bdf -o u8g2_font_dseg7_cr.c  -n u8g2_font_dseg7_cr -d ../bdf/helvR12.bdf 
+	convert bdf.tga -trim u8g2_font_dseg7_cr.png
+
+dseg14cr: bdfconv
+	./bdfconv -v -f 1 -b 2 -m '32-255' dseg14_classic_regular.bdf -o u8g2_font_dseg14_cr.c  -n u8g2_font_dseg14_cr -d ../bdf/helvR12.bdf 
+	convert bdf.tga -trim u8g2_font_dseg14_cr.png
+
 emoticons21: bdfconv
 	./bdfconv -v -f 1 -m '32-64' ../emoticons/emoticons21.bdf -o emoticons21.c  -n u8g2_font_emoticons21_tn -d ../bdf/helvB18.bdf 
+
+ded: bdfconv
+	./bdfconv -v -b 0 -f 1  ./F16_DED.bdf -o ded.c  -n ded -d ../bdf/helvB12.bdf 
 
 old16x16: bdfconv
 	-../otf2bdf/otf2bdf -r 72 -p 16 -o tmp.bdf ../ttf/Px437_Wyse700a.ttf
@@ -325,11 +340,6 @@ chinese: bdfconv
 	./bdfconv ../bdf/gb24st.bdf -b 0 -f 1 -M ../build/chinese3.map -d ../bdf/7x13.bdf -n u8g2_font_gb24st_t_3
 	convert bdf.tga -trim u8g2_font_gb24st_t_3.png
 
-malayalam: bdfconv
-	-../otf2bdf/otf2bdf -a -r 72 -p 16 -o malayalam.bdf malayalam.ttf
-	./bdfconv -v -f 1 -m '$$21-$$7e,$$d02-$$d6f,$$ece3-$$ed59' malayalam.bdf -o u8g2_font_malayalam_tn.c  -n u8g2_font_malayalam_tn -d ../bdf/helvB18.bdf 
-	convert bdf.tga malayalam.png
-
 gayathri: bdfconv
 	-../otf2bdf/otf2bdf -a -r 72 -p 24 -o gayathri.bdf Gayatri.ttf
 	./bdfconv -v -f 1 -m '$$21-$$1fd,$$d00-$$d7f,$$200c-$$20b9,$$10003-$$102bc>$$e003' gayathri.bdf -o u8g2_font_gayathri_tn.c  -n u8g2_font_gayathri_tn -d ../bdf/helvB18.bdf 
@@ -339,3 +349,8 @@ meera: bdfconv
 	-../otf2bdf/otf2bdf -a -r 72 -p 24 -o meera.bdf Meera.ttf
 	./bdfconv -v -f 1 -m '$$21-$$2dc,$$d02-$$d6f,$$200c-$$2215,$$10003-$$1043f>$$e003' meera.bdf -o u8g2_font_meera_tn.c  -n u8g2_font_meera_tn -d ../bdf/helvB18.bdf 
 	convert bdf.tga meera.png
+
+gess: bdfconv
+	./bdfconv -v -f 1 -m '$$20-$$ffff,~1588,~65010,~65205,~65206' GESSTwoBold-Bold-75.bdf -o u8g2_font_gess.c  -n u8g2_font_gess -d ../bdf/helvB18.bdf 
+	convert bdf.tga u8g2_font_gess.png
+
