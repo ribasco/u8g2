@@ -104,6 +104,7 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "128x64_adafruit" },
+      { "128x64_raystar" },
       { NULL }
     }
   },
@@ -112,6 +113,16 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "128x64_adafruit" },
+      { "128x64_raystar" },
+      { NULL }
+    }
+  },
+
+  {
+    "ssd1306", 	255,  2, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_3WSPI|COM_6800|COM_8080,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "2040x16" },
       { NULL }
     }
   },
@@ -313,6 +324,24 @@ struct controller controller_list[] =
     {
       { "128x32_univision" },
       { "128x32_winstar" },
+      { NULL }
+    }
+  },  
+
+  
+  {
+    "sh1106", 	16, 	4, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_3WSPI|COM_6800|COM_8080|COM_8080,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "128x32_visionox" },
+      { NULL }
+    }
+  },
+  {
+    "sh1106", 	16, 	4, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_fast_i2c", "i2c", COM_I2C,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "128x32_visionox" },
       { NULL }
     }
   },  
@@ -622,6 +651,7 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "60x32" },
+      { "60x32_alt" },
       { NULL }
     }
   },
@@ -630,6 +660,7 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "60x32" },
+      { "60x32_alt" },
       { NULL }
     }
   },
@@ -693,7 +724,8 @@ struct controller controller_list[] =
     "ls027b7dh01", 	50, 	30, 	"u8g2_ll_hvline_horizontal_right_lsb", "u8x8_cad_001", "", COM_4WSPI,		/* cad procedure is not required (no DC for this display) so it could be a dummy procedure here */
     "", /* is_generate_u8g2_class= */ 1,
     {
-      { "400x240" },
+      { "400x240" },			// SPI Mode 2
+      { "m0_400x240" },		// SPI Mode 0
       { NULL }
     }
   },
@@ -911,6 +943,22 @@ struct controller controller_list[] =
       { NULL }
     }
   },  
+  {
+    "uc1611", 	32, 	16, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_3WSPI|COM_6800|COM_8080,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "ids4073" },
+      { NULL }
+    }
+  },  
+  {
+    "uc1611", 	32, 	16, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_uc16xx_i2c", "i2c", COM_I2C,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "ids4073" },
+      { NULL }
+    }
+  },  
   
 
   {
@@ -939,6 +987,22 @@ struct controller controller_list[] =
     }
   },
 
+  {
+    "st7528", 		20, 	8, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_6800|COM_8080,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "erc16064" },
+      { NULL }
+    }
+  },
+  {
+    "st7528", 		20, 	8, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_i2c", "i2c", COM_I2C,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "erc16064" },
+      { NULL }
+    }
+  },
   
 
   
@@ -968,6 +1032,7 @@ struct controller controller_list[] =
       { "64128n" },       
       { "zolen_128x64" },
       { "lm6059" },
+      { "ks0713" },	/* KS0713 chip, which seems to be almost compatible to ST7565 */
       { "lx12864" },
       { "erc12864" },
       { "erc12864_alt" },	/* issue 790 */
@@ -1050,6 +1115,22 @@ struct controller controller_list[] =
     }
   },
   
+  {
+    "st7571", 		16, 	16, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_001", "", COM_4WSPI|COM_6800|COM_8080,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "128x128" },
+      { NULL }
+    }
+  },
+  {
+    "st7571", 		16, 	16, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_ssd13xx_i2c", "i2c", COM_I2C,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "128x128" },
+      { NULL }
+    }
+  },
   
   
   {
@@ -1066,6 +1147,7 @@ struct controller controller_list[] =
     "", /* is_generate_u8g2_class= */ 1,
     {
       { "erc240160" },
+      { "ymc240160" },
       { NULL }
     },
   },
@@ -1456,6 +1538,17 @@ struct controller controller_list[] =
       { NULL }
     }
   },
+  
+  {
+    "s1d15e06", 	20, 	13, 	"u8g2_ll_hvline_vertical_top_lsb", "u8x8_cad_011", "", COM_4WSPI|COM_6800|COM_8080,
+    "", /* is_generate_u8g2_class= */ 1,
+    {
+      { "160100" },
+      { NULL }
+    }
+  },
+  
+  
   {
     "a2printer", 	48, 	30, 	"u8g2_ll_hvline_horizontal_right_lsb", "u8x8_cad_empty", "", COM_UART,
     "", /* is_generate_u8g2_class= */ 0,
